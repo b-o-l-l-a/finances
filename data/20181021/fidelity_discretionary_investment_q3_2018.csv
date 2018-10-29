@@ -1,0 +1,40 @@
+
+
+
+Run Date,Action,Symbol,Security Description,Security Type,Quantity,Price ($),Commission ($),Fees ($),Accrued Interest ($),Amount ($),Settlement Date
+ 09/28/2018, REINVESTMENT, FZFXX, FIDELITY TREASURY MONEY MARKET FUND,Cash,3.87,1,,,,-3.87,
+ 09/28/2018, DIVIDEND RECEIVED, FZFXX, FIDELITY TREASURY MONEY MARKET FUND,Cash,,,,,,3.87,
+ 09/17/2018, Electronic Funds Transfer Received,  , No Description,Cash,,,,,,200,
+ 09/14/2018, REINVESTMENT, FBGRX, FIDELITY BLUE CHIP GROWTH,Cash,0.976,100.85,,,,-98.39,
+ 09/14/2018, DIVIDEND RECEIVED, FBGRX, FIDELITY BLUE CHIP GROWTH,Cash,,,,,,1.77,
+ 09/14/2018, LONG-TERM CAP GAIN, FBGRX, FIDELITY BLUE CHIP GROWTH,Cash,,,,,,96.62,
+ 09/04/2018, Electronic Funds Transfer Received,  , No Description,Cash,,,,,,100,
+ 08/31/2018, REINVESTMENT, FZFXX, FIDELITY TREASURY MONEY MARKET FUND,Cash,3.47,1,,,,-3.47,
+ 08/31/2018, DIVIDEND RECEIVED, FZFXX, FIDELITY TREASURY MONEY MARKET FUND,Cash,,,,,,3.47,
+ 08/15/2018, Electronic Funds Transfer Received,  , No Description,Cash,,,,,,200,
+ 08/01/2018, Electronic Funds Transfer Received,  , No Description,Cash,,,,,,100,
+ 07/31/2018, REINVESTMENT, FZFXX, FIDELITY TREASURY MONEY MARKET FUND,Cash,2.49,1,,,,-2.49,
+ 07/31/2018, DIVIDEND RECEIVED, FZFXX, FIDELITY TREASURY MONEY MARKET FUND,Cash,,,,,,2.49,
+ 07/31/2018, Electronic Funds Transfer Paid, , No Description,Cash,,,,,,-327.41,
+ 07/17/2018, Electronic Funds Transfer Paid, , No Description,Cash,,,,,,-2500,
+ 07/16/2018, Electronic Funds Transfer Received,  , No Description,Cash,,,,,,200,
+ 07/12/2018, YOU SOLD, FBGRX, FIDELITY BLUE CHIP GROWTH,Cash,-17.64,102.04,,,,1800, 07/13/2018
+ 07/12/2018, YOU SOLD, FARNX, FIDELITY EVENT DRIVEN OPPORTUNITIES,Cash,-172.142,14.57,,,,2508.11, 07/13/2018
+ 07/06/2018, REINVESTMENT, FASMX, FIDELITY ASSET MANAGER 50%,Cash,0.592,18.39,,,,-10.89, 
+ 07/06/2018, DIVIDEND RECEIVED, FASMX, FIDELITY ASSET MANAGER 50%,Cash,,,,,,10.89, 
+ 07/02/2018, Electronic Funds Transfer Received,  , No Description,Cash,,,,,,100, 
+
+
+
+
+
+"The data and information in this spreadsheet is provided to you solely for your use and is not for distribution. The spreadsheet is provided for"
+"informational purposes only, and is not intended to provide advice, nor should it be construed as an offer to sell, a solicitation of an offer to buy or a"
+"recommendation for any security by Fidelity or any third party. Data and information shown is based on information known to Fidelity as of the date it was"
+"exported and is subject to change. It should not be used in place of your account statements or trade confirmations and is not intended for tax reporting"
+"purposes. For more information on the data included in this spreadsheet, including any limitations thereof, go to Fidelity.com."
+
+"Brokerage services are provided by Fidelity Brokerage Services LLC, 900 Salem Street, Smithfield, RI 02917. Custody and other services provided by National"
+"Financial Services LLC. Both are Fidelity Investment companies and members SIPC, NYSE."
+
+"Date downloaded" 10/22/2018, 9:33 AM
