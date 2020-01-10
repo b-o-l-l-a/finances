@@ -24,7 +24,7 @@ txn_categorization_config = {
         "Auto and Transport" : [
             "Gas", "Insurance", "Lease Payment",
             "Maintenance", "Miscellaneous", "Parking",  "Parts",
-            "Public Transport", "Ride Share", "Tolls"
+            "Public Transport", "Ride Share", "Ticket", "Tolls"
         ], 
         "Bills and Utilities" : [
             "Credit Card Payment", "Energy", "Phone", "Rent", "TV", "Utilities (Energy, TV, Wifi)", "Wifi"
@@ -41,7 +41,7 @@ txn_categorization_config = {
             "Flight", "Group", "Hobbies", "Lodging", "Tickets"
         ],
         "Entertainment" : [
-            "Audible", "Amazon Prime", "Other", "Sports", "Spotify", "TV"
+            "Audible", "Amazon Prime", "Gambling", "Other", "Sports", "Spotify", "TV"
         ],
         "Fees and Charges" : [
             "Bank Service Fee", "Late Fee"

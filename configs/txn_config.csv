@@ -25,6 +25,7 @@ BISTRO BERRY,Dining Out,Solo,
 BLAKE STREET TAVERN,Dining Out,Bars,
 BONOBOS,Shopping,Clothes,
 BREWERY,Dining Out,Bars,
+BREWING,Dining Out,Bars,
 BRIDGEWATER GRILL,Dining Out,Solo,
 CALL TO ARMS BREWING,Dining Out,Bars,
 CARBON LOUNGE,Dining Out,Bars,
@@ -42,11 +43,6 @@ CLUB TAVERN,Dining Out,Bars,
 COFFEE,Dining Out,Coffee,
 COLORADO MOUNTAIN SCHO,Hobbies,Snowboarding - Miscellaneous,
 COLORADO SAKE CO,Dining Out,Bars,
-COLORADO SAKE CO,Dining Out,Bars,
-CONOCO,Auto and Transport,Gas,txn_amount >= 10
-CONOCO,Groceries,Unknown,txn_amount < 10
-CONOCO - JENNY'S MARKET,Auto and Transport,Gas,txn_amount >= 10
-CONOCO - JENNY'S MARKET,Groceries,Unknown,txn_amount < 10
 CORNER STORE,Auto and Transport,Gas,txn_amount >= 10
 CORNER STORE,Groceries,Unknown,txn_amount < 10
 CRIMSON ROOM,Dining Out,Bars,
@@ -59,7 +55,6 @@ CURIO,Dining Out,Group,
 CVS/PHARMACY,Groceries,Non-Food,
 DAGAR,Experiences,Group,
 DAILY HARVEST,Groceries,Food,
-DAZBOG COFFEE,Dining Out,Coffee,
 DEATH &amp; CO,Dining Out,Bars,
 DENVER TEDS,Dining Out,Solo,
 DIA PARKING,Auto and Transport,Parking,
@@ -222,7 +217,6 @@ VERIZONWRLSS,Bills and Utilities,Phone,
 VIVID SEAT,Experiences,Tickets,
 VOICEBOX RINO,Dining Out,Bars,
 WAFFLE HOUSE,Dining Out,Group,
-WASHWAY LAUNDRY,Personal Care,Laundry,
 WAWA,Auto and Transport,Gas,txn_amount >= 10
 WAWA,Groceries,Unknown,txn_amount < 10
 WESTBOUND &,Dining Out,Group,
