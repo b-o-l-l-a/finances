@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finances"
+version = "0.1.0"
+description = "Personal finance tracker - aggregate and analyze spending"
+requires-python = ">=3.11"
+dependencies = [
+    "sqlalchemy>=2.0",
+    "python-dotenv>=1.0",
+    "plaid-python>=22.0",
+    "click>=8.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+finances = "finances.cli:cli"

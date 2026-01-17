@@ -1,0 +1,13 @@
+# Core
+sqlalchemy>=2.0
+python-dotenv>=1.0
+
+# Plaid integration
+plaid-python>=22.0
+
+# CLI
+click>=8.0
+rich>=13.0
+
+# Development
+pytest>=8.0
