@@ -461,12 +461,16 @@ def sync(account_id: int | None):
                 # Teller amounts are always positive
                 # type "debit" = money out (expense) → negative
                 # type "credit" = money in (income) → positive
+                # type "transaction" = use amount sign from API
                 amount = float(txn_data.get("amount", 0))
                 txn_type = txn_data.get("type")
                 if txn_type == "debit":
                     amount = -abs(amount)
                 elif txn_type == "credit":
                     amount = abs(amount)
+                elif txn_type in ("transaction", "transfer"):
+                    # For generic types, amount is already signed
+                    pass
                 else:
                     raise ValueError(f"Unknown transaction type: {txn_type}")
 
