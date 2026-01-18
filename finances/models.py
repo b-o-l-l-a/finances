@@ -15,7 +15,6 @@ from finances.database import Base
 
 class TransactionSource(str, Enum):
     """Where the transaction data came from."""
-    PLAID = "plaid"
     AMAZON_CSV = "amazon_csv"
     VENMO_CSV = "venmo_csv"
     MANUAL = "manual"
@@ -62,8 +61,8 @@ class Account(Base):
     account_type: Mapped[AccountType] = mapped_column(
         SQLEnum(AccountType, values_callable=lambda e: [i.code for i in e])
     )
-    plaid_account_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
-    plaid_access_token: Mapped[Optional[str]] = mapped_column(String(255))
+    external_account_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
+    access_token: Mapped[Optional[str]] = mapped_column(String(255))
     last_synced: Mapped[Optional[datetime]] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -100,7 +99,7 @@ class Transaction(Base):
     )
 
     # External IDs for deduplication
-    plaid_transaction_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
+    external_transaction_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
     external_id: Mapped[Optional[str]] = mapped_column(String(255))  # Amazon order ID, etc.
 
     # Relationships
