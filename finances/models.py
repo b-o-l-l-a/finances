@@ -18,6 +18,7 @@ class TransactionSource(str, Enum):
     AMAZON_CSV = "amazon_csv"
     VENMO_CSV = "venmo_csv"
     MANUAL = "manual"
+    TELLER = "teller"
 
 
 class Institution(Enum):
