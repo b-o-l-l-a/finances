@@ -84,6 +84,19 @@ class Category(Base):
         "Category", remote_side="Category.id", backref="subcategories"
     )
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="category")
+    rules: Mapped[list["CategoryRule"]] = relationship(back_populates="category")
+
+
+class CategoryRule(Base):
+    """Rule for auto-categorizing transactions based on merchant pattern."""
+    __tablename__ = "category_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pattern: Mapped[str] = mapped_column(String(255), unique=True)  # case-insensitive substring match
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    category: Mapped["Category"] = relationship(back_populates="rules")
 
 
 class Transaction(Base):

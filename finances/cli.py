@@ -87,10 +87,15 @@ def cli():
 
 
 @cli.command()
-def init():
+@click.option("--seed", is_flag=True, help="Also seed categories and rules")
+def init(seed: bool):
     """Initialize the database."""
     init_db()
-    console.print("[green]Database initialized successfully.[/green]")
+    console.print("[green]Database initialized.[/green]")
+
+    if seed:
+        from finances.seed import seed_all
+        seed_all()
 
 
 @cli.command()
@@ -128,13 +133,13 @@ def accounts():
 
 @cli.command()
 def categories():
-    """List spending categories and budgets."""
+    """List spending categories and budgets as a tree."""
     from finances.models import Category
 
     db = SessionLocal()
     try:
-        cats = db.query(Category).filter(Category.parent_id.is_(None)).all()
-        if not cats:
+        roots = db.query(Category).filter(Category.parent_id.is_(None)).all()
+        if not roots:
             console.print("No categories defined. Use 'add-category' to create one.")
             return
 
@@ -143,10 +148,18 @@ def categories():
         table.add_column("Name")
         table.add_column("Monthly Budget", justify="right")
 
-        for cat in cats:
-            budget = f"${cat.budget_monthly:,.2f}" if cat.budget_monthly else "-"
-            table.add_row(str(cat.id), cat.name, budget)
+        def add_category_rows(parent_id: int | None, indent: int = 0) -> None:
+            cats = db.query(Category).filter(
+                Category.parent_id == parent_id
+            ).order_by(Category.name).all()
 
+            for cat in cats:
+                prefix = "  " * indent + ("└── " if indent > 0 else "")
+                budget = f"${cat.budget_monthly:,.2f}" if cat.budget_monthly else "-"
+                table.add_row(str(cat.id), f"{prefix}{cat.name}", budget)
+                add_category_rows(cat.id, indent + 1)
+
+        add_category_rows(None)
         console.print(table)
     finally:
         db.close()
@@ -492,6 +505,127 @@ def sync(account_id: int | None):
 
         db.commit()
         console.print(f"\n[green]Sync complete! {total_new} new transactions added.[/green]")
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.argument("transaction_id", type=int)
+@click.argument("category_name")
+def categorize(transaction_id: int, category_name: str):
+    """Manually assign a category to a transaction."""
+    from finances.models import Transaction, Category
+
+    db = SessionLocal()
+    try:
+        txn = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+        if not txn:
+            console.print(f"[red]Transaction {transaction_id} not found.[/red]")
+            return
+
+        category = db.query(Category).filter(Category.name.ilike(category_name)).first()
+        if not category:
+            console.print(f"[red]Category '{category_name}' not found.[/red]")
+            return
+
+        txn.category_id = category.id
+        db.commit()
+        console.print(f"[green]Transaction {transaction_id} categorized as '{category.name}'.[/green]")
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.argument("pattern")
+@click.argument("category_name")
+def add_rule(pattern: str, category_name: str):
+    """Add a rule to auto-categorize transactions by merchant pattern."""
+    from finances.models import Category, CategoryRule
+
+    db = SessionLocal()
+    try:
+        category = db.query(Category).filter(Category.name.ilike(category_name)).first()
+        if not category:
+            console.print(f"[red]Category '{category_name}' not found.[/red]")
+            return
+
+        existing = db.query(CategoryRule).filter(CategoryRule.pattern.ilike(pattern)).first()
+        if existing:
+            console.print(f"[yellow]Rule for '{pattern}' already exists (→ {existing.category.name}).[/yellow]")
+            return
+
+        rule = CategoryRule(pattern=pattern.lower(), category_id=category.id)
+        db.add(rule)
+        db.commit()
+        console.print(f"[green]Rule added: '{pattern}' → {category.name}[/green]")
+    finally:
+        db.close()
+
+
+@cli.command()
+def rules():
+    """List categorization rules."""
+    from finances.models import CategoryRule
+
+    db = SessionLocal()
+    try:
+        all_rules = db.query(CategoryRule).all()
+        if not all_rules:
+            console.print("No rules defined. Use 'add-rule' to create one.")
+            return
+
+        table = Table(title="Categorization Rules")
+        table.add_column("ID", style="dim")
+        table.add_column("Pattern")
+        table.add_column("Category")
+
+        for rule in all_rules:
+            table.add_row(str(rule.id), rule.pattern, rule.category.name)
+
+        console.print(table)
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.option("--dry-run", is_flag=True, help="Show what would be categorized without saving")
+def auto_categorize(dry_run: bool):
+    """Apply categorization rules to uncategorized transactions."""
+    from finances.models import Transaction, CategoryRule
+
+    db = SessionLocal()
+    try:
+        rules = db.query(CategoryRule).all()
+        if not rules:
+            console.print("No rules defined. Use 'add-rule' to create rules first.")
+            return
+
+        uncategorized = db.query(Transaction).filter(Transaction.category_id.is_(None)).all()
+        if not uncategorized:
+            console.print("No uncategorized transactions.")
+            return
+
+        categorized_count = 0
+        for txn in uncategorized:
+            merchant_lower = txn.merchant.lower()
+            for rule in rules:
+                if rule.pattern in merchant_lower:
+                    if dry_run:
+                        console.print(f"  {txn.merchant[:40]} → {rule.category.name}")
+                    else:
+                        txn.category_id = rule.category_id
+                    categorized_count += 1
+                    break
+
+        if not dry_run:
+            db.commit()
+            console.print(f"[green]Categorized {categorized_count} transactions.[/green]")
+        else:
+            console.print(f"\n[cyan]Dry run: would categorize {categorized_count} transactions.[/cyan]")
+
+        remaining = len(uncategorized) - categorized_count
+        if remaining > 0:
+            console.print(f"[yellow]{remaining} transactions still uncategorized.[/yellow]")
     finally:
         db.close()
 
