@@ -9,17 +9,23 @@ DEFAULT_CATEGORIES = {
         "Fixed": {
             "Insurance": {},
         },
-        "Food": {
+        "Food & Drink": {
             "Restaurants": {},
             "Groceries": {},
+            "Bar": {},
+            "Coffee": {},
         },
         "Shopping": {},
         "Subscriptions": {},
         "Transportation": {
-            "Flights": {},
             "Gasoline": {},
         },
+        "Travel": {
+            "Flights": {},
+            "Lodging": {},
+        },
         "Fitness": {},
+        "Entertainment": {},
     },
     "Income": {
         "Payroll": {},
@@ -49,6 +55,53 @@ DEFAULT_RULES = [
     # Flight rules
     ("united airlines", "Flights", None, None),
     ("frontier airlines", "Flights", None, None),
+    # Bar rules
+    ("steep brewing", "Bar", None, None),
+    ("denver beer co", "Bar", None, None),
+    ("labates liquors", "Bar", None, None),
+    # Coffee rules
+    ("pour la france", "Coffee", None, None),
+    ("la dolce vita", "Coffee", None, None),
+    ("hearth denver", "Coffee", None, None),
+    # Subscriptions
+    ("apple.com/bill", "Subscriptions", None, None),
+    ("adobe", "Subscriptions", None, None),
+    ("audible", "Subscriptions", None, None),
+    ("hulu", "Subscriptions", None, None),
+    ("google *google one", "Subscriptions", None, None),
+    ("microsoft*microsoft", "Subscriptions", None, None),
+    ("the economist", "Subscriptions", None, None),
+    ("descript", "Subscriptions", None, None),
+    ("redcircle", "Subscriptions", None, None),
+    # Restaurants
+    ("aquavit", "Restaurants", None, None),
+    ("sushi den", "Restaurants", None, None),
+    ("mead st station", "Restaurants", None, None),
+    ("wendys", "Restaurants", None, None),
+    ("mr egg", "Restaurants", None, None),
+    ("black diamond grille", "Restaurants", None, None),
+    ("chavelas", "Restaurants", None, None),
+    # Groceries
+    ("sprouts", "Groceries", None, None),
+    ("city-market", "Groceries", None, None),
+    ("instacart", "Groceries", None, None),
+    ("walgreens", "Groceries", None, None),
+    # Fitness
+    ("crossfit", "Fitness", None, None),
+    ("shogun jiu jitsu", "Fitness", None, None),
+    # Transportation
+    ("lyft", "Transportation", None, None),
+    ("rtd denver", "Transportation", None, None),
+    ("e 470", "Transportation", None, None),
+    ("priceln*frontier", "Flights", None, None),
+    # Shopping
+    ("rei #", "Shopping", None, None),
+    ("target", "Shopping", None, None),
+    ("scheels", "Shopping", None, None),
+    # Lodging
+    ("booking.com", "Lodging", None, None),
+    ("holiday inn", "Lodging", None, None),
+    ("christie lodge", "Lodging", None, None),
 ]
 
 
