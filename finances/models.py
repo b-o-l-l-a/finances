@@ -88,12 +88,15 @@ class Category(Base):
 
 
 class CategoryRule(Base):
-    """Rule for auto-categorizing transactions based on merchant pattern."""
+    """Rule for auto-categorizing transactions based on merchant pattern and optional amount conditions."""
     __tablename__ = "category_rules"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    pattern: Mapped[str] = mapped_column(String(255), unique=True)  # case-insensitive substring match
+    pattern: Mapped[str] = mapped_column(String(255))  # case-insensitive substring match
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
+    # Optional amount conditions (compared against absolute value of transaction amount)
+    min_abs_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2))
+    max_abs_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     category: Mapped["Category"] = relationship(back_populates="rules")

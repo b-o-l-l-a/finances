@@ -15,7 +15,10 @@ DEFAULT_CATEGORIES = {
         },
         "Shopping": {},
         "Subscriptions": {},
-        "Transportation": {},
+        "Transportation": {
+            "Flights": {},
+            "Gasoline": {},
+        },
         "Fitness": {},
     },
     "Income": {
@@ -24,20 +27,29 @@ DEFAULT_CATEGORIES = {
 }
 
 
-DEFAULT_RULES = {
-    "chipotle": "Restaurants",
-    "amazon": "Shopping",
-    "nike": "Shopping",
-    "rei.com": "Shopping",
-    "netflix": "Subscriptions",
-    "hbomax": "Subscriptions",
-    "canva": "Subscriptions",
-    "king soopers": "Groceries",
-    "trinet": "Payroll",
-    "usaa p&c": "Insurance",
-    "yoga box": "Fitness",
-    "interest": "Income",
-}
+# Rules: list of (pattern, category, min_amount, max_amount)
+# min_amount is inclusive (>=), max_amount is exclusive (<)
+# None means no condition
+DEFAULT_RULES = [
+    ("chipotle", "Restaurants", None, None),
+    ("amazon", "Shopping", None, None),
+    ("nike", "Shopping", None, None),
+    ("rei.com", "Shopping", None, None),
+    ("netflix", "Subscriptions", None, None),
+    ("hbomax", "Subscriptions", None, None),
+    ("canva", "Subscriptions", None, None),
+    ("king soopers", "Groceries", None, None),
+    ("trinet", "Payroll", None, None),
+    ("usaa p&c", "Insurance", None, None),
+    ("yoga box", "Fitness", None, None),
+    ("interest", "Income", None, None),
+    # Amount-conditional rules
+    ("7-eleven", "Food", None, 20),       # < $20 = Food
+    ("7-eleven", "Gasoline", 20, None),   # >= $20 = Gasoline
+    # Flight rules
+    ("united airlines", "Flights", None, None),
+    ("frontier airlines", "Flights", None, None),
+]
 
 
 def create_categories(parent_id: int | None, structure: dict, db) -> None:
@@ -66,13 +78,18 @@ def seed_rules() -> None:
     """Seed default categorization rules."""
     db = SessionLocal()
     try:
-        for pattern, category_name in DEFAULT_RULES.items():
+        for pattern, category_name, min_amount, max_amount in DEFAULT_RULES:
             category = db.query(Category).filter(Category.name == category_name).first()
             if not category:
                 print(f"  Warning: Category '{category_name}' not found, skipping '{pattern}'")
                 continue
 
-            rule = CategoryRule(pattern=pattern, category_id=category.id)
+            rule = CategoryRule(
+                pattern=pattern,
+                category_id=category.id,
+                min_abs_amount=min_amount,
+                max_abs_amount=max_amount
+            )
             db.add(rule)
 
         db.commit()

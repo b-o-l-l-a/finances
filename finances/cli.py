@@ -538,8 +538,14 @@ def categorize(transaction_id: int, category_name: str):
 @cli.command()
 @click.argument("pattern")
 @click.argument("category_name")
-def add_rule(pattern: str, category_name: str):
-    """Add a rule to auto-categorize transactions by merchant pattern."""
+@click.option("--min", "min_amount", type=float, help="Minimum absolute amount for rule to match")
+@click.option("--max", "max_amount", type=float, help="Maximum absolute amount for rule to match")
+def add_rule(pattern: str, category_name: str, min_amount: float | None, max_amount: float | None):
+    """Add a rule to auto-categorize transactions by merchant pattern.
+
+    Optionally specify --min and --max for amount-based conditions.
+    Example: add-rule "7-eleven" "Food" --max 20
+    """
     from finances.models import Category, CategoryRule
 
     db = SessionLocal()
@@ -549,15 +555,34 @@ def add_rule(pattern: str, category_name: str):
             console.print(f"[red]Category '{category_name}' not found.[/red]")
             return
 
-        existing = db.query(CategoryRule).filter(CategoryRule.pattern.ilike(pattern)).first()
+        # Check for duplicate rule with same pattern AND amount conditions
+        existing = db.query(CategoryRule).filter(
+            CategoryRule.pattern.ilike(pattern),
+            CategoryRule.min_abs_amount == min_amount,
+            CategoryRule.max_abs_amount == max_amount
+        ).first()
         if existing:
-            console.print(f"[yellow]Rule for '{pattern}' already exists (→ {existing.category.name}).[/yellow]")
+            console.print(f"[yellow]Rule for '{pattern}' with same conditions already exists (→ {existing.category.name}).[/yellow]")
             return
 
-        rule = CategoryRule(pattern=pattern.lower(), category_id=category.id)
+        rule = CategoryRule(
+            pattern=pattern.lower(),
+            category_id=category.id,
+            min_abs_amount=min_amount,
+            max_abs_amount=max_amount
+        )
         db.add(rule)
         db.commit()
-        console.print(f"[green]Rule added: '{pattern}' → {category.name}[/green]")
+
+        # Build description
+        conditions = []
+        if min_amount:
+            conditions.append(f">=${min_amount}")
+        if max_amount:
+            conditions.append(f"<${max_amount}")
+        condition_str = f" ({', '.join(conditions)})" if conditions else ""
+
+        console.print(f"[green]Rule added: '{pattern}'{condition_str} → {category.name}[/green]")
     finally:
         db.close()
 
@@ -569,7 +594,7 @@ def rules():
 
     db = SessionLocal()
     try:
-        all_rules = db.query(CategoryRule).all()
+        all_rules = db.query(CategoryRule).order_by(CategoryRule.pattern).all()
         if not all_rules:
             console.print("No rules defined. Use 'add-rule' to create one.")
             return
@@ -577,10 +602,17 @@ def rules():
         table = Table(title="Categorization Rules")
         table.add_column("ID", style="dim")
         table.add_column("Pattern")
+        table.add_column("Amount Condition")
         table.add_column("Category")
 
         for rule in all_rules:
-            table.add_row(str(rule.id), rule.pattern, rule.category.name)
+            conditions = []
+            if rule.min_abs_amount:
+                conditions.append(f">=${rule.min_abs_amount}")
+            if rule.max_abs_amount:
+                conditions.append(f"<${rule.max_abs_amount}")
+            condition_str = ", ".join(conditions) if conditions else "-"
+            table.add_row(str(rule.id), rule.pattern, condition_str, rule.category.name)
 
         console.print(table)
     finally:
@@ -595,7 +627,13 @@ def auto_categorize(dry_run: bool):
 
     db = SessionLocal()
     try:
-        rules = db.query(CategoryRule).all()
+        # Sort rules: more specific rules (with amount conditions) first
+        all_rules = db.query(CategoryRule).all()
+        rules = sorted(all_rules, key=lambda r: (
+            r.min_abs_amount is None and r.max_abs_amount is None,  # Rules with conditions first
+            r.pattern
+        ))
+
         if not rules:
             console.print("No rules defined. Use 'add-rule' to create rules first.")
             return
@@ -608,14 +646,25 @@ def auto_categorize(dry_run: bool):
         categorized_count = 0
         for txn in uncategorized:
             merchant_lower = txn.merchant.lower()
+            abs_amount = abs(float(txn.amount))
+
             for rule in rules:
-                if rule.pattern in merchant_lower:
-                    if dry_run:
-                        console.print(f"  {txn.merchant[:40]} → {rule.category.name}")
-                    else:
-                        txn.category_id = rule.category_id
-                    categorized_count += 1
-                    break
+                if rule.pattern not in merchant_lower:
+                    continue
+
+                # Check amount conditions (min is inclusive >=, max is exclusive <)
+                if rule.min_abs_amount and abs_amount < float(rule.min_abs_amount):
+                    continue
+                if rule.max_abs_amount and abs_amount >= float(rule.max_abs_amount):
+                    continue
+
+                # Rule matches
+                if dry_run:
+                    console.print(f"  {txn.merchant[:40]} (${abs_amount:.2f}) → {rule.category.name}")
+                else:
+                    txn.category_id = rule.category_id
+                categorized_count += 1
+                break
 
         if not dry_run:
             db.commit()
