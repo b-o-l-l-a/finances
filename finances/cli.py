@@ -620,6 +620,136 @@ def rules():
 
 
 @cli.command()
+def manual_categorize():
+    """Interactively categorize uncategorized transactions."""
+    from finances.models import Transaction, Category
+
+    db = SessionLocal()
+    try:
+        while True:
+            # Get uncategorized transactions
+            uncategorized = (
+                db.query(Transaction)
+                .filter(Transaction.category_id.is_(None))
+                .order_by(Transaction.date.desc())
+                .all()
+            )
+
+            if not uncategorized:
+                console.print("[green]No uncategorized transactions remaining![/green]")
+                break
+
+            console.print(f"\n[bold]Uncategorized transactions ({len(uncategorized)}):[/bold]\n")
+
+            # Show transactions with index
+            table = Table()
+            table.add_column("#", style="dim")
+            table.add_column("Date")
+            table.add_column("Amount", justify="right")
+            table.add_column("Merchant")
+
+            for i, txn in enumerate(uncategorized[:20], 1):  # Show first 20
+                amount_str = f"${abs(txn.amount):,.2f}"
+                if txn.amount < 0:
+                    amount_str = f"[red]-{amount_str}[/red]"
+                else:
+                    amount_str = f"[green]+{amount_str}[/green]"
+                table.add_row(str(i), str(txn.date), amount_str, txn.merchant[:50])
+
+            console.print(table)
+
+            if len(uncategorized) > 20:
+                console.print(f"[dim]...and {len(uncategorized) - 20} more[/dim]")
+
+            # Prompt for transaction selection
+            console.print("\n[cyan]Enter transaction # to categorize (or 'q' to quit, 's' to skip):[/cyan]")
+            choice = input("> ").strip().lower()
+
+            if choice == 'q':
+                break
+            if choice == 's':
+                continue
+
+            try:
+                txn_idx = int(choice) - 1
+                if txn_idx < 0 or txn_idx >= len(uncategorized[:20]):
+                    console.print("[red]Invalid selection.[/red]")
+                    continue
+            except ValueError:
+                console.print("[red]Please enter a number, 'q', or 's'.[/red]")
+                continue
+
+            selected_txn = uncategorized[txn_idx]
+            console.print(f"\nSelected: [bold]{selected_txn.merchant}[/bold] ({selected_txn.date}, ${abs(selected_txn.amount):,.2f})")
+
+            # Show categories
+            def get_categories_flat(parent_id=None, prefix=""):
+                """Get categories as flat list with indentation."""
+                cats = db.query(Category).filter(
+                    Category.parent_id == parent_id
+                ).order_by(Category.name).all()
+                result = []
+                for cat in cats:
+                    result.append((cat, prefix + cat.name))
+                    result.extend(get_categories_flat(cat.id, prefix + "  "))
+                return result
+
+            categories_flat = get_categories_flat()
+
+            console.print("\n[bold]Categories:[/bold]")
+            cat_table = Table(show_header=False, box=None)
+            cat_table.add_column("#", style="dim", width=4)
+            cat_table.add_column("Name")
+
+            for i, (cat, display_name) in enumerate(categories_flat, 1):
+                cat_table.add_row(str(i), display_name)
+
+            console.print(cat_table)
+
+            # Prompt for category selection
+            console.print("\n[cyan]Enter category # or name (or 's' to skip):[/cyan]")
+            cat_choice = input("> ").strip()
+
+            if cat_choice.lower() == 's':
+                continue
+
+            selected_cat = None
+
+            # Try as number first
+            try:
+                cat_idx = int(cat_choice) - 1
+                if 0 <= cat_idx < len(categories_flat):
+                    selected_cat = categories_flat[cat_idx][0]
+            except ValueError:
+                # Try as name match
+                for cat, _ in categories_flat:
+                    if cat.name.lower() == cat_choice.lower():
+                        selected_cat = cat
+                        break
+
+            if not selected_cat:
+                console.print("[red]Invalid category selection.[/red]")
+                continue
+
+            # Confirm before applying
+            console.print(f"\n[yellow]Categorize '[bold]{selected_txn.merchant[:40]}[/bold]' as '[bold]{selected_cat.name}[/bold]'?[/yellow]")
+            console.print("[cyan]Enter 'y' to confirm, any other key to cancel:[/cyan]")
+            confirm = input("> ").strip().lower()
+
+            if confirm != 'y':
+                console.print("[dim]Cancelled.[/dim]")
+                continue
+
+            # Apply categorization
+            selected_txn.category_id = selected_cat.id
+            db.commit()
+            console.print(f"[green]Categorized as '{selected_cat.name}'[/green]")
+
+    finally:
+        db.close()
+
+
+@cli.command()
 @click.option("--dry-run", is_flag=True, help="Show what would be categorized without saving")
 def auto_categorize(dry_run: bool):
     """Apply categorization rules to uncategorized transactions."""
