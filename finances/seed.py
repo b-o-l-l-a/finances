@@ -6,8 +6,13 @@ from finances.models import Category, CategoryRule
 
 DEFAULT_CATEGORIES = {
     "Expenses": {
-        "Fixed": {
-            "Insurance": {},
+        "Bills": {
+            "Insurance (Auto)": {},
+            "Credit Card": {},
+            "Electric": {},
+            "Phone": {},
+            "Medical": {},
+            "Mortgage": {},
         },
         "Food & Drink": {
             "Restaurants": {},
@@ -19,13 +24,23 @@ DEFAULT_CATEGORIES = {
         "Subscriptions": {},
         "Transportation": {
             "Gasoline": {},
+            "Parking": {},
+            "Car Maintenance": {},
         },
         "Travel": {
             "Flights": {},
             "Lodging": {},
+            "Expenditures": {},
         },
-        "Fitness": {},
-        "Entertainment": {},
+        "Fitness": {
+            "Gyms": {},
+            "Supplements": {},
+            "Equipment": {},
+        },
+        "Hobbies & Entertainment": {},
+        "ATM Withdrawal": {},
+        "Mammal": {},
+        "Home": {},
     },
     "Income": {
         "Payroll": {},
@@ -46,12 +61,13 @@ DEFAULT_RULES = [
     ("canva", "Subscriptions", None, None),
     ("king soopers", "Groceries", None, None),
     ("trinet", "Payroll", None, None),
-    ("usaa p&c", "Insurance", None, None),
-    ("yoga box", "Fitness", None, None),
+    ("usaa p&c", "Insurance (Auto)", None, None),
+    ("yoga box", "Gyms", None, None),
     ("interest", "Income", None, None),
     # Amount-conditional rules
     ("7-eleven", "Food", None, 20),       # < $20 = Food
     ("7-eleven", "Gasoline", 20, None),   # >= $20 = Gasoline
+    ("afmzs", "Gasoline", None, None),
     # Flight rules
     ("united airlines", "Flights", None, None),
     ("frontier airlines", "Flights", None, None),
@@ -63,6 +79,7 @@ DEFAULT_RULES = [
     ("pour la france", "Coffee", None, None),
     ("la dolce vita", "Coffee", None, None),
     ("hearth denver", "Coffee", None, None),
+    ("ewr world bean", "Coffee", None, None),
     # Subscriptions
     ("apple.com/bill", "Subscriptions", None, None),
     ("adobe", "Subscriptions", None, None),
@@ -81,19 +98,31 @@ DEFAULT_RULES = [
     ("mr egg", "Restaurants", None, None),
     ("black diamond grille", "Restaurants", None, None),
     ("chavelas", "Restaurants", None, None),
+    ("georges cafe", "Restaurants", None, None),
+    ("twin star", "Restaurants", None, None),
     # Groceries
     ("sprouts", "Groceries", None, None),
     ("city-market", "Groceries", None, None),
     ("instacart", "Groceries", None, None),
     ("walgreens", "Groceries", None, None),
-    # Fitness
-    ("crossfit", "Fitness", None, None),
-    ("shogun jiu jitsu", "Fitness", None, None),
+    # Gyms
+    ("crossfit", "Gyms", None, None),
+    ("shogun jiu jitsu", "Gyms", None, None),
+    # Supplements
+    ("jocko fuel", "Supplements", None, None),
     # Transportation
     ("lyft", "Transportation", None, None),
     ("rtd denver", "Transportation", None, None),
     ("e 470", "Transportation", None, None),
     ("priceln*frontier", "Flights", None, None),
+    # Parking
+    ("laz parking", "Parking", None, None),
+    ("rei surface lots", "Parking", None, None),
+    # Car Maintenance
+    ("big jims wash", "Car Maintenance", None, None),
+    ("colorado car wash", "Car Maintenance", None, None),
+    ("chevrolet", "Car Maintenance", None, None),
+    ("safelite", "Car Maintenance", None, None),
     # Shopping
     ("rei #", "Shopping", None, None),
     ("target", "Shopping", None, None),
@@ -102,6 +131,34 @@ DEFAULT_RULES = [
     ("booking.com", "Lodging", None, None),
     ("holiday inn", "Lodging", None, None),
     ("christie lodge", "Lodging", None, None),
+    ("outdoorsy", "Lodging", None, None),
+    ("king hotel", "Lodging", None, None),
+    # Travel Expenditures
+    ("yellowstone", "Expenditures", None, None),
+    # Hobbies & Entertainment
+    ("comedy works", "Hobbies & Entertainment", None, None),
+    ("ticketscentr", "Hobbies & Entertainment", None, None),
+    ("snow.com", "Hobbies & Entertainment", None, None),
+    ("ikon pass", "Hobbies & Entertainment", None, None),
+    # ATM Withdrawal
+    ("pai atm", "ATM Withdrawal", None, None),
+    # Credit Card
+    ("usaa credit card payment", "Credit Card", None, None),
+    # Electric
+    ("xcel energy", "Electric", None, None),
+    # Phone
+    ("vzwrlss", "Phone", None, None),
+    # Mortgage
+    ("mr.cooper", "Mortgage", None, None),
+    # Medical
+    ("kaiser", "Medical", None, None),
+    ("best in sight", "Medical", None, None),
+    ("kimberly garrison", "Medical", None, None),
+    ("hydrateivbar", "Medical", None, None),
+    # Mammal
+    ("selfpublishing", "Mammal", None, None),
+    # Home
+    ("vectra mechanical", "Home", None, None),
 ]
 
 
