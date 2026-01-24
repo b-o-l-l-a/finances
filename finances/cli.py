@@ -732,7 +732,8 @@ def manual_categorize():
                 continue
 
             # Confirm before applying
-            console.print(f"\n[yellow]Categorize '[bold]{selected_txn.merchant[:40]}[/bold]' as '[bold]{selected_cat.name}[/bold]'?[/yellow]")
+            amount_str = f"-${abs(selected_txn.amount):,.2f}" if selected_txn.amount < 0 else f"+${abs(selected_txn.amount):,.2f}"
+            console.print(f"\n[yellow]Categorize '[bold]{selected_txn.merchant[:40]}[/bold]' ({selected_txn.date}, {amount_str}) as '[bold]{selected_cat.name}[/bold]'?[/yellow]")
             console.print("[cyan]Enter 'y' to confirm, any other key to cancel:[/cyan]")
             confirm = input("> ").strip().lower()
 
