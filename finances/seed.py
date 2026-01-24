@@ -39,8 +39,11 @@ DEFAULT_CATEGORIES = {
         },
         "Hobbies & Entertainment": {},
         "ATM Withdrawal": {},
-        "Mammal": {},
+        "Mammal": {
+            "Research & Development": {},
+        },
         "Home": {},
+        "Unknown/Uncategorized": {},
     },
     "Income": {
         "Payroll": {},
@@ -71,6 +74,7 @@ DEFAULT_RULES = [
     # Flight rules
     ("united airlines", "Flights", None, None),
     ("frontier airlines", "Flights", None, None),
+    ("dtcom dallas", "Flights", None, None),
     # Bar rules
     ("steep brewing", "Bar", None, None),
     ("denver beer co", "Bar", None, None),
@@ -108,8 +112,11 @@ DEFAULT_RULES = [
     # Gyms
     ("crossfit", "Gyms", None, None),
     ("shogun jiu jitsu", "Gyms", None, None),
+    ("portal thermaculture", "Gyms", None, None),
     # Supplements
     ("jocko fuel", "Supplements", None, None),
+    # Equipment
+    ("road runne", "Equipment", None, None),
     # Transportation
     ("lyft", "Transportation", None, None),
     ("rtd denver", "Transportation", None, None),
@@ -127,6 +134,8 @@ DEFAULT_RULES = [
     ("rei #", "Shopping", None, None),
     ("target", "Shopping", None, None),
     ("scheels", "Shopping", None, None),
+    ("stiomountain", "Shopping", None, None),
+    ("black diamond denver", "Shopping", None, None),
     # Lodging
     ("booking.com", "Lodging", None, None),
     ("holiday inn", "Lodging", None, None),
@@ -142,6 +151,7 @@ DEFAULT_RULES = [
     ("ikon pass", "Hobbies & Entertainment", None, None),
     # ATM Withdrawal
     ("pai atm", "ATM Withdrawal", None, None),
+    ("atm rebate", "ATM Withdrawal", None, None),
     # Credit Card
     ("usaa credit card payment", "Credit Card", None, None),
     # Electric
@@ -157,8 +167,14 @@ DEFAULT_RULES = [
     ("hydrateivbar", "Medical", None, None),
     # Mammal
     ("selfpublishing", "Mammal", None, None),
+    ("green space", "Mammal", None, None),
+    # Research & Development
+    ("cu law", "Research & Development", None, None),
+    ("reciprocity", "Research & Development", None, None),
     # Home
     ("vectra mechanical", "Home", None, None),
+    # Unknown/Uncategorized
+    ("late fee", "Unknown/Uncategorized", None, None),
 ]
 
 
