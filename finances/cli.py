@@ -87,10 +87,15 @@ def cli():
 
 
 @cli.command()
-def init():
+@click.option("--seed", is_flag=True, help="Also seed categories and rules")
+def init(seed: bool):
     """Initialize the database."""
     init_db()
-    console.print("[green]Database initialized successfully.[/green]")
+    console.print("[green]Database initialized.[/green]")
+
+    if seed:
+        from finances.seed import seed_all
+        seed_all()
 
 
 @cli.command()
@@ -128,13 +133,13 @@ def accounts():
 
 @cli.command()
 def categories():
-    """List spending categories and budgets."""
+    """List spending categories and budgets as a tree."""
     from finances.models import Category
 
     db = SessionLocal()
     try:
-        cats = db.query(Category).filter(Category.parent_id.is_(None)).all()
-        if not cats:
+        roots = db.query(Category).filter(Category.parent_id.is_(None)).all()
+        if not roots:
             console.print("No categories defined. Use 'add-category' to create one.")
             return
 
@@ -143,10 +148,18 @@ def categories():
         table.add_column("Name")
         table.add_column("Monthly Budget", justify="right")
 
-        for cat in cats:
-            budget = f"${cat.budget_monthly:,.2f}" if cat.budget_monthly else "-"
-            table.add_row(str(cat.id), cat.name, budget)
+        def add_category_rows(parent_id: int | None, indent: int = 0) -> None:
+            cats = db.query(Category).filter(
+                Category.parent_id == parent_id
+            ).order_by(Category.name).all()
 
+            for cat in cats:
+                prefix = "  " * indent + ("└── " if indent > 0 else "")
+                budget = f"${cat.budget_monthly:,.2f}" if cat.budget_monthly else "-"
+                table.add_row(str(cat.id), f"{prefix}{cat.name}", budget)
+                add_category_rows(cat.id, indent + 1)
+
+        add_category_rows(None)
         console.print(table)
     finally:
         db.close()
@@ -492,6 +505,307 @@ def sync(account_id: int | None):
 
         db.commit()
         console.print(f"\n[green]Sync complete! {total_new} new transactions added.[/green]")
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.argument("transaction_id", type=int)
+@click.argument("category_name")
+def categorize(transaction_id: int, category_name: str):
+    """Manually assign a category to a transaction."""
+    from finances.models import Transaction, Category
+
+    db = SessionLocal()
+    try:
+        txn = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+        if not txn:
+            console.print(f"[red]Transaction {transaction_id} not found.[/red]")
+            return
+
+        category = db.query(Category).filter(Category.name.ilike(category_name)).first()
+        if not category:
+            console.print(f"[red]Category '{category_name}' not found.[/red]")
+            return
+
+        txn.category_id = category.id
+        db.commit()
+        console.print(f"[green]Transaction {transaction_id} categorized as '{category.name}'.[/green]")
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.argument("pattern")
+@click.argument("category_name")
+@click.option("--min", "min_amount", type=float, help="Minimum absolute amount for rule to match")
+@click.option("--max", "max_amount", type=float, help="Maximum absolute amount for rule to match")
+def add_rule(pattern: str, category_name: str, min_amount: float | None, max_amount: float | None):
+    """Add a rule to auto-categorize transactions by merchant pattern.
+
+    Optionally specify --min and --max for amount-based conditions.
+    Example: add-rule "7-eleven" "Food" --max 20
+    """
+    from finances.models import Category, CategoryRule
+
+    db = SessionLocal()
+    try:
+        category = db.query(Category).filter(Category.name.ilike(category_name)).first()
+        if not category:
+            console.print(f"[red]Category '{category_name}' not found.[/red]")
+            return
+
+        # Check for duplicate rule with same pattern AND amount conditions
+        existing = db.query(CategoryRule).filter(
+            CategoryRule.pattern.ilike(pattern),
+            CategoryRule.min_abs_amount == min_amount,
+            CategoryRule.max_abs_amount == max_amount
+        ).first()
+        if existing:
+            console.print(f"[yellow]Rule for '{pattern}' with same conditions already exists (→ {existing.category.name}).[/yellow]")
+            return
+
+        rule = CategoryRule(
+            pattern=pattern.lower(),
+            category_id=category.id,
+            min_abs_amount=min_amount,
+            max_abs_amount=max_amount
+        )
+        db.add(rule)
+        db.commit()
+
+        # Build description
+        conditions = []
+        if min_amount:
+            conditions.append(f">=${min_amount}")
+        if max_amount:
+            conditions.append(f"<${max_amount}")
+        condition_str = f" ({', '.join(conditions)})" if conditions else ""
+
+        console.print(f"[green]Rule added: '{pattern}'{condition_str} → {category.name}[/green]")
+    finally:
+        db.close()
+
+
+@cli.command()
+def rules():
+    """List categorization rules."""
+    from finances.models import CategoryRule
+
+    db = SessionLocal()
+    try:
+        all_rules = db.query(CategoryRule).order_by(CategoryRule.pattern).all()
+        if not all_rules:
+            console.print("No rules defined. Use 'add-rule' to create one.")
+            return
+
+        table = Table(title="Categorization Rules")
+        table.add_column("ID", style="dim")
+        table.add_column("Pattern")
+        table.add_column("Amount Condition")
+        table.add_column("Category")
+
+        for rule in all_rules:
+            conditions = []
+            if rule.min_abs_amount:
+                conditions.append(f">=${rule.min_abs_amount}")
+            if rule.max_abs_amount:
+                conditions.append(f"<${rule.max_abs_amount}")
+            condition_str = ", ".join(conditions) if conditions else "-"
+            table.add_row(str(rule.id), rule.pattern, condition_str, rule.category.name)
+
+        console.print(table)
+    finally:
+        db.close()
+
+
+@cli.command()
+def manual_categorize():
+    """Interactively categorize uncategorized transactions."""
+    from finances.models import Transaction, Category
+
+    db = SessionLocal()
+    try:
+        while True:
+            # Get uncategorized transactions
+            uncategorized = (
+                db.query(Transaction)
+                .filter(Transaction.category_id.is_(None))
+                .order_by(Transaction.date.desc())
+                .all()
+            )
+
+            if not uncategorized:
+                console.print("[green]No uncategorized transactions remaining![/green]")
+                break
+
+            console.print(f"\n[bold]Uncategorized transactions ({len(uncategorized)}):[/bold]\n")
+
+            # Show transactions with index
+            table = Table()
+            table.add_column("#", style="dim")
+            table.add_column("Date")
+            table.add_column("Amount", justify="right")
+            table.add_column("Merchant")
+
+            for i, txn in enumerate(uncategorized[:20], 1):  # Show first 20
+                amount_str = f"${abs(txn.amount):,.2f}"
+                if txn.amount < 0:
+                    amount_str = f"[red]-{amount_str}[/red]"
+                else:
+                    amount_str = f"[green]+{amount_str}[/green]"
+                table.add_row(str(i), str(txn.date), amount_str, txn.merchant[:50])
+
+            console.print(table)
+
+            if len(uncategorized) > 20:
+                console.print(f"[dim]...and {len(uncategorized) - 20} more[/dim]")
+
+            # Prompt for transaction selection
+            console.print("\n[cyan]Enter transaction # to categorize (or 'q' to quit, 's' to skip):[/cyan]")
+            choice = input("> ").strip().lower()
+
+            if choice == 'q':
+                break
+            if choice == 's':
+                continue
+
+            try:
+                txn_idx = int(choice) - 1
+                if txn_idx < 0 or txn_idx >= len(uncategorized[:20]):
+                    console.print("[red]Invalid selection.[/red]")
+                    continue
+            except ValueError:
+                console.print("[red]Please enter a number, 'q', or 's'.[/red]")
+                continue
+
+            selected_txn = uncategorized[txn_idx]
+            console.print(f"\nSelected: [bold]{selected_txn.merchant}[/bold] ({selected_txn.date}, ${abs(selected_txn.amount):,.2f})")
+
+            # Show categories
+            def get_categories_flat(parent_id=None, prefix=""):
+                """Get categories as flat list with indentation."""
+                cats = db.query(Category).filter(
+                    Category.parent_id == parent_id
+                ).order_by(Category.name).all()
+                result = []
+                for cat in cats:
+                    result.append((cat, prefix + cat.name))
+                    result.extend(get_categories_flat(cat.id, prefix + "  "))
+                return result
+
+            categories_flat = get_categories_flat()
+
+            console.print("\n[bold]Categories:[/bold]")
+            cat_table = Table(show_header=False, box=None)
+            cat_table.add_column("#", style="dim", width=4)
+            cat_table.add_column("Name")
+
+            for i, (cat, display_name) in enumerate(categories_flat, 1):
+                cat_table.add_row(str(i), display_name)
+
+            console.print(cat_table)
+
+            # Prompt for category selection
+            console.print("\n[cyan]Enter category # or name (or 's' to skip):[/cyan]")
+            cat_choice = input("> ").strip()
+
+            if cat_choice.lower() == 's':
+                continue
+
+            selected_cat = None
+
+            # Try as number first
+            try:
+                cat_idx = int(cat_choice) - 1
+                if 0 <= cat_idx < len(categories_flat):
+                    selected_cat = categories_flat[cat_idx][0]
+            except ValueError:
+                # Try as name match
+                for cat, _ in categories_flat:
+                    if cat.name.lower() == cat_choice.lower():
+                        selected_cat = cat
+                        break
+
+            if not selected_cat:
+                console.print("[red]Invalid category selection.[/red]")
+                continue
+
+            # Confirm before applying
+            amount_str = f"-${abs(selected_txn.amount):,.2f}" if selected_txn.amount < 0 else f"+${abs(selected_txn.amount):,.2f}"
+            console.print(f"\n[yellow]Categorize '[bold]{selected_txn.merchant[:40]}[/bold]' ({selected_txn.date}, {amount_str}) as '[bold]{selected_cat.name}[/bold]'?[/yellow]")
+            console.print("[cyan]Enter 'y' to confirm, any other key to cancel:[/cyan]")
+            confirm = input("> ").strip().lower()
+
+            if confirm != 'y':
+                console.print("[dim]Cancelled.[/dim]")
+                continue
+
+            # Apply categorization
+            selected_txn.category_id = selected_cat.id
+            db.commit()
+            console.print(f"[green]Categorized as '{selected_cat.name}'[/green]")
+
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.option("--dry-run", is_flag=True, help="Show what would be categorized without saving")
+def auto_categorize(dry_run: bool):
+    """Apply categorization rules to uncategorized transactions."""
+    from finances.models import Transaction, CategoryRule
+
+    db = SessionLocal()
+    try:
+        # Sort rules: more specific rules (with amount conditions) first
+        all_rules = db.query(CategoryRule).all()
+        rules = sorted(all_rules, key=lambda r: (
+            r.min_abs_amount is None and r.max_abs_amount is None,  # Rules with conditions first
+            r.pattern
+        ))
+
+        if not rules:
+            console.print("No rules defined. Use 'add-rule' to create rules first.")
+            return
+
+        uncategorized = db.query(Transaction).filter(Transaction.category_id.is_(None)).all()
+        if not uncategorized:
+            console.print("No uncategorized transactions.")
+            return
+
+        categorized_count = 0
+        for txn in uncategorized:
+            merchant_lower = txn.merchant.lower()
+            abs_amount = abs(float(txn.amount))
+
+            for rule in rules:
+                if rule.pattern not in merchant_lower:
+                    continue
+
+                # Check amount conditions (min is inclusive >=, max is exclusive <)
+                if rule.min_abs_amount and abs_amount < float(rule.min_abs_amount):
+                    continue
+                if rule.max_abs_amount and abs_amount >= float(rule.max_abs_amount):
+                    continue
+
+                # Rule matches
+                if dry_run:
+                    console.print(f"  {txn.merchant[:40]} (${abs_amount:.2f}) → {rule.category.name}")
+                else:
+                    txn.category_id = rule.category_id
+                categorized_count += 1
+                break
+
+        if not dry_run:
+            db.commit()
+            console.print(f"[green]Categorized {categorized_count} transactions.[/green]")
+        else:
+            console.print(f"\n[cyan]Dry run: would categorize {categorized_count} transactions.[/cyan]")
+
+        remaining = len(uncategorized) - categorized_count
+        if remaining > 0:
+            console.print(f"[yellow]{remaining} transactions still uncategorized.[/yellow]")
     finally:
         db.close()
 
