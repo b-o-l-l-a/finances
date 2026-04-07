@@ -471,27 +471,33 @@ def sync(account_id: int | None):
                     continue
 
                 # Parse transaction amount
-                # Teller amounts are always positive
-                # type "debit" = money out (expense) → negative
-                # type "credit" = money in (income) → positive
-                # type "transaction" = use amount sign from API
+                # "debit" and "credit" types: Teller sends positive amounts, we apply sign
+                # All other known types: amount is already correctly signed by Teller/bank
                 amount = float(txn_data.get("amount", 0))
                 txn_type = txn_data.get("type")
                 if txn_type == "debit":
                     amount = -abs(amount)
                 elif txn_type == "credit":
                     amount = abs(amount)
-                elif txn_type in ("transaction", "transfer"):
-                    # For generic types, amount is already signed
-                    pass
+                elif txn_type in (
+                    "card_payment", "check", "deposit", "fee",
+                    "interest", "payment", "transaction", "transfer", "withdrawal",
+                ):
+                    pass  # amount is already correctly signed
                 else:
                     raise ValueError(f"Unknown transaction type: {txn_type}")
+
+                details = txn_data.get("details", {})
+                counterparty = details.get("counterparty") or {}
+                merchant = counterparty.get("name") or txn_data.get("description", "Unknown")
+                
+                console.print(f"  [dim]type={txn_type} amount={amount} merchant={merchant}[/dim]")
 
                 txn = Transaction(
                     date=parse_teller_date(txn_data["date"]),
                     amount=amount,
-                    merchant=txn_data.get("description", "Unknown"),
-                    description=txn_data.get("details", {}).get("category", ""),
+                    merchant=merchant,
+                    description=txn_data.get("description", ""),
                     source=TransactionSource.TELLER,
                     external_transaction_id=txn_data["id"],
                     account_id=account.id,
