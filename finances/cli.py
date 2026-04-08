@@ -168,13 +168,22 @@ def categories():
 @cli.command()
 @click.argument("name")
 @click.option("--budget", "-b", type=float, help="Monthly budget amount")
-def add_category(name: str, budget: float | None):
+@click.option("--parent", "-p", help="Parent category name")
+def add_category(name: str, budget: float | None, parent: str | None):
     """Add a spending category."""
     from finances.models import Category
 
     db = SessionLocal()
     try:
-        cat = Category(name=name, budget_monthly=budget)
+        parent_id = None
+        if parent:
+            parent_cat = db.query(Category).filter(Category.name.ilike(parent)).first()
+            if not parent_cat:
+                console.print(f"[red]Parent category '{parent}' not found.[/red]")
+                return
+            parent_id = parent_cat.id
+
+        cat = Category(name=name, budget_monthly=budget, parent_id=parent_id)
         db.add(cat)
         db.commit()
         console.print(f"[green]Category '{name}' created.[/green]")
@@ -653,6 +662,7 @@ def manual_categorize():
             table.add_column("Date")
             table.add_column("Amount", justify="right")
             table.add_column("Merchant")
+            table.add_column("Account", style="dim")
 
             for i, txn in enumerate(uncategorized[:20], 1):  # Show first 20
                 amount_str = f"${abs(txn.amount):,.2f}"
@@ -660,7 +670,8 @@ def manual_categorize():
                     amount_str = f"[red]-{amount_str}[/red]"
                 else:
                     amount_str = f"[green]+{amount_str}[/green]"
-                table.add_row(str(i), str(txn.date), amount_str, txn.merchant[:50])
+                account_name = txn.account.name if txn.account else "-"
+                table.add_row(str(i), str(txn.date), amount_str, txn.merchant[:50], account_name)
 
             console.print(table)
 
