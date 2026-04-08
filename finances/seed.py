@@ -43,13 +43,14 @@ DEFAULT_CATEGORIES = {
         },
         "Hobbies & Entertainment": {},
         "ATM Withdrawal": {},
-        "Mammal": {
+        "Mammal (Expenses)": {
             "Research & Development": {},
         },
         "Home": {},
         "Unknown/Uncategorized": {},
     },
     "Income": {
+        "Mammal (Income)": {},
         "Payroll": {},
     },
 }
@@ -186,11 +187,11 @@ DEFAULT_RULES = [
     ("best in sight", "Medical", None, None),
     ("kimberly garrison", "Medical", None, None),
     ("hydrateivbar", "Medical", None, None),
-    # Mammal
-    ("claude ai subscr", "Mammal", None, None),
-    ("green space", "Mammal", None, None),
-    ("selfpublishing", "Mammal", None, None),
-    ("veed limited", "Mammal", None, None),
+    # Mammal (Expenses)
+    ("claude ai subscr", "Mammal (Expenses)", None, None),
+    ("green space", "Mammal (Expenses)", None, None),
+    ("selfpublishing", "Mammal (Expenses)", None, None),
+    ("veed limited", "Mammal (Expenses)", None, None),
     # Research & Development
     ("cu law", "Research & Development", None, None),
     ("reciprocity", "Research & Development", None, None),

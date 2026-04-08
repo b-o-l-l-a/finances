@@ -440,7 +440,8 @@ def link():
 
 @cli.command()
 @click.option("--account-id", "-a", type=int, help="Sync specific account by ID")
-def sync(account_id: int | None):
+@click.option("--count", "-n", default=100, help="Number of transactions to fetch per account (default 100)")
+def sync(account_id: int | None, count: int):
     """Sync transactions from connected bank accounts."""
     from finances.models import Account, Transaction, TransactionSource
     from finances.teller import TellerClient, parse_teller_date
@@ -464,7 +465,7 @@ def sync(account_id: int | None):
             client = TellerClient(account.access_token)
 
             try:
-                transactions = client.list_transactions(account.external_account_id)
+                transactions = client.list_transactions(account.external_account_id, count=count)
             except Exception as e:
                 console.print(f"  [red]Error: {e}[/red]")
                 continue
@@ -762,6 +763,18 @@ def manual_categorize():
             selected_txn.category_id = selected_cat.id
             db.commit()
             console.print(f"[green]Categorized as '{selected_cat.name}'[/green]")
+
+            # Offer to create a rule
+            console.print(f"\n[cyan]Add a rule to auto-categorize future transactions as '{selected_cat.name}'? (y/n):[/cyan]")
+            if input("> ").strip().lower() == 'y':
+                console.print(f"[cyan]Pattern (enter to use '{selected_txn.merchant.lower()}'):[/cyan]")
+                pattern = input("> ").strip().lower() or selected_txn.merchant.lower()
+                if pattern:
+                    from finances.models import CategoryRule
+                    rule = CategoryRule(pattern=pattern, category_id=selected_cat.id)
+                    db.add(rule)
+                    db.commit()
+                    console.print(f"[green]Rule added: '{pattern}' → {selected_cat.name}[/green]")
 
     finally:
         db.close()
