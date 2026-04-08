@@ -168,13 +168,22 @@ def categories():
 @cli.command()
 @click.argument("name")
 @click.option("--budget", "-b", type=float, help="Monthly budget amount")
-def add_category(name: str, budget: float | None):
+@click.option("--parent", "-p", help="Parent category name")
+def add_category(name: str, budget: float | None, parent: str | None):
     """Add a spending category."""
     from finances.models import Category
 
     db = SessionLocal()
     try:
-        cat = Category(name=name, budget_monthly=budget)
+        parent_id = None
+        if parent:
+            parent_cat = db.query(Category).filter(Category.name.ilike(parent)).first()
+            if not parent_cat:
+                console.print(f"[red]Parent category '{parent}' not found.[/red]")
+                return
+            parent_id = parent_cat.id
+
+        cat = Category(name=name, budget_monthly=budget, parent_id=parent_id)
         db.add(cat)
         db.commit()
         console.print(f"[green]Category '{name}' created.[/green]")
@@ -471,27 +480,33 @@ def sync(account_id: int | None):
                     continue
 
                 # Parse transaction amount
-                # Teller amounts are always positive
-                # type "debit" = money out (expense) → negative
-                # type "credit" = money in (income) → positive
-                # type "transaction" = use amount sign from API
+                # "debit" and "credit" types: Teller sends positive amounts, we apply sign
+                # All other known types: amount is already correctly signed by Teller/bank
                 amount = float(txn_data.get("amount", 0))
                 txn_type = txn_data.get("type")
                 if txn_type == "debit":
                     amount = -abs(amount)
                 elif txn_type == "credit":
                     amount = abs(amount)
-                elif txn_type in ("transaction", "transfer"):
-                    # For generic types, amount is already signed
-                    pass
+                elif txn_type in (
+                    "card_payment", "check", "deposit", "fee",
+                    "interest", "payment", "transaction", "transfer", "withdrawal",
+                ):
+                    pass  # amount is already correctly signed
                 else:
                     raise ValueError(f"Unknown transaction type: {txn_type}")
+
+                details = txn_data.get("details", {})
+                counterparty = details.get("counterparty") or {}
+                merchant = counterparty.get("name") or txn_data.get("description", "Unknown")
+                
+                console.print(f"  [dim]type={txn_type} amount={amount} merchant={merchant}[/dim]")
 
                 txn = Transaction(
                     date=parse_teller_date(txn_data["date"]),
                     amount=amount,
-                    merchant=txn_data.get("description", "Unknown"),
-                    description=txn_data.get("details", {}).get("category", ""),
+                    merchant=merchant,
+                    description=txn_data.get("description", ""),
                     source=TransactionSource.TELLER,
                     external_transaction_id=txn_data["id"],
                     account_id=account.id,
@@ -647,6 +662,7 @@ def manual_categorize():
             table.add_column("Date")
             table.add_column("Amount", justify="right")
             table.add_column("Merchant")
+            table.add_column("Account", style="dim")
 
             for i, txn in enumerate(uncategorized[:20], 1):  # Show first 20
                 amount_str = f"${abs(txn.amount):,.2f}"
@@ -654,7 +670,8 @@ def manual_categorize():
                     amount_str = f"[red]-{amount_str}[/red]"
                 else:
                     amount_str = f"[green]+{amount_str}[/green]"
-                table.add_row(str(i), str(txn.date), amount_str, txn.merchant[:50])
+                account_name = txn.account.name if txn.account else "-"
+                table.add_row(str(i), str(txn.date), amount_str, txn.merchant[:50], account_name)
 
             console.print(table)
 

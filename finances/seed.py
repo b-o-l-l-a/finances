@@ -10,9 +10,12 @@ DEFAULT_CATEGORIES = {
             "Insurance (Auto)": {},
             "Credit Card": {},
             "Electric": {},
+            "Home Equity Loan": {},
             "Phone": {},
             "Medical": {},
             "Mortgage": {},
+            "Water": {},
+            "Wifi": {},
         },
         "Food & Drink": {
             "Restaurants": {},
@@ -23,9 +26,10 @@ DEFAULT_CATEGORIES = {
         "Shopping": {},
         "Subscriptions": {},
         "Transportation": {
+            "Car Maintenance": {},
+            "Car Payment": {},
             "Gasoline": {},
             "Parking": {},
-            "Car Maintenance": {},
         },
         "Travel": {
             "Flights": {},
@@ -55,17 +59,11 @@ DEFAULT_CATEGORIES = {
 # min_amount is inclusive (>=), max_amount is exclusive (<)
 # None means no condition
 DEFAULT_RULES = [
-    ("chipotle", "Restaurants", None, None),
     ("amazon", "Shopping", None, None),
     ("nike", "Shopping", None, None),
     ("rei.com", "Shopping", None, None),
-    ("netflix", "Subscriptions", None, None),
-    ("hbomax", "Subscriptions", None, None),
-    ("canva", "Subscriptions", None, None),
-    ("king soopers", "Groceries", None, None),
     ("trinet", "Payroll", None, None),
     ("usaa p&c", "Insurance (Auto)", None, None),
-    ("yoga box", "Gyms", None, None),
     ("interest", "Income", None, None),
     # Amount-conditional rules
     ("7-eleven", "Food", None, 20),       # < $20 = Food
@@ -80,39 +78,55 @@ DEFAULT_RULES = [
     ("denver beer co", "Bar", None, None),
     ("labates liquors", "Bar", None, None),
     # Coffee rules
-    ("pour la france", "Coffee", None, None),
-    ("la dolce vita", "Coffee", None, None),
-    ("hearth denver", "Coffee", None, None),
     ("ewr world bean", "Coffee", None, None),
+    ("hearth denver", "Coffee", None, None),
+    ("la dolce vita", "Coffee", None, None),
+    ("la dulce gracia", "Coffee", None, None),
+    ("pour la france", "Coffee", None, None),
     # Subscriptions
-    ("apple.com/bill", "Subscriptions", None, None),
     ("adobe", "Subscriptions", None, None),
+    ("apple.com/bill", "Subscriptions", None, None),
     ("audible", "Subscriptions", None, None),
-    ("hulu", "Subscriptions", None, None),
-    ("google *google one", "Subscriptions", None, None),
-    ("microsoft*microsoft", "Subscriptions", None, None),
-    ("the economist", "Subscriptions", None, None),
+    ("canva", "Subscriptions", None, None),
     ("descript", "Subscriptions", None, None),
+    ("google *google one", "Subscriptions", None, None),
+    ("hbomax", "Subscriptions", None, None),
+    ("hulu", "Subscriptions", None, None),
+    ("linkedinprec", "Subscriptions", None, None),
+    ("microsoft*microsoft", "Subscriptions", None, None),
+    ("netflix", "Subscriptions", None, None),
+    ("prime video", "Subscriptions", None, None),
     ("redcircle", "Subscriptions", None, None),
+    ("rocket money premium", "Subscriptions", None, None),
+    ("spotify", "Subscriptions", None, None),
+    ("the economist", "Subscriptions", None, None),
     # Restaurants
     ("aquavit", "Restaurants", None, None),
-    ("sushi den", "Restaurants", None, None),
-    ("mead st station", "Restaurants", None, None),
-    ("wendys", "Restaurants", None, None),
-    ("mr egg", "Restaurants", None, None),
     ("black diamond grille", "Restaurants", None, None),
     ("chavelas", "Restaurants", None, None),
+    ("chipotle", "Restaurants", None, None),
+    ("delicatessen", "Restaurants", None, None),
     ("georges cafe", "Restaurants", None, None),
+    ("loaded joe's", "Restaurants", None, None),
+    ("mcdonald's", "Restaurants", None, None),
+    ("mead st station", "Restaurants", None, None),
+    ("mr egg", "Restaurants", None, None),
+    ("sushi den", "Restaurants", None, None),
     ("twin star", "Restaurants", None, None),
+    ("wendys", "Restaurants", None, None),
     # Groceries
-    ("sprouts", "Groceries", None, None),
     ("city-market", "Groceries", None, None),
     ("instacart", "Groceries", None, None),
+    ("king soopers", "Groceries", None, None),
+    ("safeway", "Groceries", None, None),
+    ("sprouts", "Groceries", None, None),
     ("walgreens", "Groceries", None, None),
     # Gyms
     ("crossfit", "Gyms", None, None),
-    ("shogun jiu jitsu", "Gyms", None, None),
     ("portal thermaculture", "Gyms", None, None),
+    ("shogun jiu jitsu", "Gyms", None, None),
+    ("wtfboxing", "Gyms", None, None),
+    ("yoga box", "Gyms", None, None),
     # Supplements
     ("jocko fuel", "Supplements", None, None),
     # Equipment
@@ -125,6 +139,7 @@ DEFAULT_RULES = [
     # Parking
     ("laz parking", "Parking", None, None),
     ("rei surface lots", "Parking", None, None),
+    ("vail-parking", "Parking", None, None),
     # Car Maintenance
     ("big jims wash", "Car Maintenance", None, None),
     ("colorado car wash", "Car Maintenance", None, None),
@@ -146,9 +161,10 @@ DEFAULT_RULES = [
     ("yellowstone", "Expenditures", None, None),
     # Hobbies & Entertainment
     ("comedy works", "Hobbies & Entertainment", None, None),
-    ("ticketscentr", "Hobbies & Entertainment", None, None),
-    ("snow.com", "Hobbies & Entertainment", None, None),
+    ("high country gen", "Hobbies & Entertainment", None, None),
     ("ikon pass", "Hobbies & Entertainment", None, None),
+    ("snow.com", "Hobbies & Entertainment", None, None),
+    ("ticketscentr", "Hobbies & Entertainment", None, None),
     # ATM Withdrawal
     ("pai atm", "ATM Withdrawal", None, None),
     ("atm rebate", "ATM Withdrawal", None, None),
@@ -160,14 +176,21 @@ DEFAULT_RULES = [
     ("vzwrlss", "Phone", None, None),
     # Mortgage
     ("mr.cooper", "Mortgage", None, None),
+    ("rocket mortgage", "Mortgage", 1000, None),
+    # Home Equity Loan
+    ("rocket mortgage", "Home Equity Loan", 550, 551),
+    # Car Payment
+    ("metrum community mccu", "Car Payment", None, None),
     # Medical
     ("kaiser", "Medical", None, None),
     ("best in sight", "Medical", None, None),
     ("kimberly garrison", "Medical", None, None),
     ("hydrateivbar", "Medical", None, None),
     # Mammal
-    ("selfpublishing", "Mammal", None, None),
+    ("claude ai subscr", "Mammal", None, None),
     ("green space", "Mammal", None, None),
+    ("selfpublishing", "Mammal", None, None),
+    ("veed limited", "Mammal", None, None),
     # Research & Development
     ("cu law", "Research & Development", None, None),
     ("reciprocity", "Research & Development", None, None),
@@ -175,6 +198,11 @@ DEFAULT_RULES = [
     ("vectra mechanical", "Home", None, None),
     # Unknown/Uncategorized
     ("late fee", "Unknown/Uncategorized", None, None),
+    ("monthly maintenance fee", "Unknown/Uncategorized", None, None),
+    # Water
+    ("opc*adams co pwcm", "Water", None, None),
+    # Wifi
+    ("lumencenturylink", "Wifi", None, None),
 ]
 
 
