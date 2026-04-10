@@ -7,51 +7,72 @@ from finances.models import Category, CategoryRule
 DEFAULT_CATEGORIES = {
     "Expenses": {
         "Bills": {
-            "Insurance (Auto)": {},
             "Credit Card": {},
             "Electric": {},
             "Home Equity Loan": {},
-            "Phone": {},
+            "Insurance (Auto)": {},
             "Medical": {},
             "Mortgage": {},
+            "Phone": {},
+            "Trash & Recycling": {},
             "Water": {},
             "Wifi": {},
         },
         "Food & Drink": {
-            "Restaurants": {},
-            "Groceries": {},
             "Bar": {},
+            "Cannabis": {},
             "Coffee": {},
+            "Groceries": {},
+            "Restaurants": {},
         },
-        "Shopping": {},
-        "Subscriptions": {},
+        "Shopping": {
+            "Athletics": {},
+            "Clothes": {},
+            "Personal": {},
+        },
+        "Subscriptions": {
+            "Technology": {},
+        },
         "Transportation": {
             "Car Maintenance": {},
             "Car Payment": {},
             "Gasoline": {},
             "Parking": {},
+            "Public Transport": {},
         },
         "Travel": {
+            "Expenditures": {},
             "Flights": {},
             "Lodging": {},
-            "Expenditures": {},
         },
         "Fitness": {
+            "Equipment": {},
             "Gyms": {},
             "Supplements": {},
-            "Equipment": {},
         },
-        "Hobbies & Entertainment": {},
+        "Hobbies & Entertainment": {
+            "Experiences": {},
+        },
         "ATM Withdrawal": {},
         "Mammal (Expenses)": {
+            "Incidentals": {},
             "Research & Development": {},
+            "Supplies": {},
         },
-        "Home": {},
+        "Home": {
+            "Home Cleaning": {},
+            "Home Insurance": {},
+            "Home Supplies": {},
+            "Repairs": {},
+            "Yard": {},
+        },
         "Unknown/Uncategorized": {},
     },
     "Income": {
         "Mammal (Income)": {},
+        "Miscellaneous Income": {},
         "Payroll": {},
+        "Rent": {},
     },
 }
 
@@ -60,150 +81,236 @@ DEFAULT_CATEGORIES = {
 # min_amount is inclusive (>=), max_amount is exclusive (<)
 # None means no condition
 DEFAULT_RULES = [
-    ("amazon", "Shopping", None, None),
-    ("nike", "Shopping", None, None),
-    ("rei.com", "Shopping", None, None),
-    ("trinet", "Payroll", None, None),
-    ("usaa p&c", "Insurance (Auto)", None, None),
-    ("interest", "Income", None, None),
-    # Amount-conditional rules
-    ("7-eleven", "Food", None, 20),       # < $20 = Food
-    ("7-eleven", "Gasoline", 20, None),   # >= $20 = Gasoline
-    ("afmzs", "Gasoline", None, None),
-    # Flight rules
-    ("united airlines", "Flights", None, None),
-    ("frontier airlines", "Flights", None, None),
-    ("dtcom dallas", "Flights", None, None),
-    # Bar rules
-    ("steep brewing", "Bar", None, None),
+    # ATM Withdrawal
+    ("atm rebate", "ATM Withdrawal", None, None),
+    ("pai atm", "ATM Withdrawal", None, None),
+    # Athletics
+    ("origin bjj llc", "Athletics", None, None),
+    ("scorpion", "Athletics", None, None),
+    # Bar
     ("denver beer co", "Bar", None, None),
     ("labates liquors", "Bar", None, None),
-    # Coffee rules
+    ("mccoys watering", "Bar", None, None),
+    ("steep brewing", "Bar", None, None),
+    # Car Maintenance
+    ("big jims wash", "Car Maintenance", None, None),
+    ("chevrolet", "Car Maintenance", None, None),
+    ("city wash solutions", "Car Maintenance", None, None),
+    ("colorado car wash", "Car Maintenance", None, None),
+    ("safelite", "Car Maintenance", None, None),
+    # Car Payment
+    ("metrum community", "Car Payment", None, None),
+    ("metrum community mccu", "Car Payment", None, None),
+    # Clothes
+    ("the reshop stores", "Clothes", None, None),
+    ("west orange hs", "Clothes", None, None),
+    # Coffee
+    ("coffee", "Coffee", None, None),
+    ("dunkin", "Coffee", None, None),
+    ("dunkin donuts", "Coffee", None, None),
     ("ewr world bean", "Coffee", None, None),
+    ("frothy cup", "Coffee", None, None),
     ("hearth denver", "Coffee", None, None),
     ("la dolce vita", "Coffee", None, None),
     ("la dulce gracia", "Coffee", None, None),
+    ("loaded joe", "Coffee", None, 10),
+    ("maci cafe", "Coffee", None, None),
     ("pour la france", "Coffee", None, None),
-    # Subscriptions
-    ("adobe", "Subscriptions", None, None),
-    ("apple.com/bill", "Subscriptions", None, None),
-    ("audible", "Subscriptions", None, None),
-    ("canva", "Subscriptions", None, None),
-    ("descript", "Subscriptions", None, None),
-    ("google *google one", "Subscriptions", None, None),
-    ("hbomax", "Subscriptions", None, None),
-    ("hulu", "Subscriptions", None, None),
-    ("linkedinprec", "Subscriptions", None, None),
-    ("microsoft*microsoft", "Subscriptions", None, None),
-    ("netflix", "Subscriptions", None, None),
-    ("prime video", "Subscriptions", None, None),
-    ("redcircle", "Subscriptions", None, None),
-    ("rocket money premium", "Subscriptions", None, None),
-    ("spotify", "Subscriptions", None, None),
-    ("the economist", "Subscriptions", None, None),
-    # Restaurants
-    ("aquavit", "Restaurants", None, None),
-    ("black diamond grille", "Restaurants", None, None),
-    ("chavelas", "Restaurants", None, None),
-    ("chipotle", "Restaurants", None, None),
-    ("delicatessen", "Restaurants", None, None),
-    ("georges cafe", "Restaurants", None, None),
-    ("loaded joe's", "Restaurants", None, None),
-    ("mcdonald's", "Restaurants", None, None),
-    ("mead st station", "Restaurants", None, None),
-    ("mr egg", "Restaurants", None, None),
-    ("sushi den", "Restaurants", None, None),
-    ("twin star", "Restaurants", None, None),
-    ("wendys", "Restaurants", None, None),
+    # Credit Card
+    ("usaa credit card payment", "Credit Card", None, None),
+    # Electric
+    ("xcel energy", "Electric", None, None),
+    # Equipment
+    ("road runne", "Equipment", None, None),
+    # Expenditures
+    ("yellowstone", "Expenditures", None, None),
+    # Experiences
+    ("marcelogarciastore", "Experiences", None, None),
+    # Flights
+    ("dtcom dallas", "Flights", None, None),
+    ("frontier airlines", "Flights", None, None),
+    ("priceln*frontier", "Flights", None, None),
+    ("united airlines", "Flights", None, None),
+    # Food & Drink (amount-conditional)
+    ("7-eleven", "Food & Drink", None, 20),
+    ("7-eleven", "Gasoline", 20, None),
+    # Gasoline
+    ("afmzs", "Gasoline", None, None),
+    ("circle", "Gasoline", None, None),
+    ("loaf n", "Gasoline", None, None),
+    ("phillips 66", "Gasoline", None, None),
     # Groceries
     ("city-market", "Groceries", None, None),
+    ("cvs/pharmacy", "Groceries", None, None),
     ("instacart", "Groceries", None, None),
     ("king soopers", "Groceries", None, None),
     ("safeway", "Groceries", None, None),
     ("sprouts", "Groceries", None, None),
+    ("tst fresh", "Groceries", None, None),
+    ("vending machine", "Groceries", None, None),
     ("walgreens", "Groceries", None, None),
     # Gyms
     ("crossfit", "Gyms", None, None),
     ("portal thermaculture", "Gyms", None, None),
+    ("shogun", "Gyms", None, None),
     ("shogun jiu jitsu", "Gyms", None, None),
     ("wtfboxing", "Gyms", None, None),
     ("yoga box", "Gyms", None, None),
-    # Supplements
-    ("jocko fuel", "Supplements", None, None),
-    # Equipment
-    ("road runne", "Equipment", None, None),
-    # Transportation
-    ("lyft", "Transportation", None, None),
-    ("rtd denver", "Transportation", None, None),
-    ("e 470", "Transportation", None, None),
-    ("priceln*frontier", "Flights", None, None),
-    # Parking
-    ("laz parking", "Parking", None, None),
-    ("rei surface lots", "Parking", None, None),
-    ("vail-parking", "Parking", None, None),
-    # Car Maintenance
-    ("big jims wash", "Car Maintenance", None, None),
-    ("colorado car wash", "Car Maintenance", None, None),
-    ("chevrolet", "Car Maintenance", None, None),
-    ("safelite", "Car Maintenance", None, None),
-    # Shopping
-    ("rei #", "Shopping", None, None),
-    ("target", "Shopping", None, None),
-    ("scheels", "Shopping", None, None),
-    ("stiomountain", "Shopping", None, None),
-    ("black diamond denver", "Shopping", None, None),
-    # Lodging
-    ("booking.com", "Lodging", None, None),
-    ("holiday inn", "Lodging", None, None),
-    ("christie lodge", "Lodging", None, None),
-    ("outdoorsy", "Lodging", None, None),
-    ("king hotel", "Lodging", None, None),
-    # Travel Expenditures
-    ("yellowstone", "Expenditures", None, None),
     # Hobbies & Entertainment
     ("comedy works", "Hobbies & Entertainment", None, None),
     ("high country gen", "Hobbies & Entertainment", None, None),
     ("ikon pass", "Hobbies & Entertainment", None, None),
     ("snow.com", "Hobbies & Entertainment", None, None),
+    ("ticket", "Hobbies & Entertainment", None, None),
     ("ticketscentr", "Hobbies & Entertainment", None, None),
-    # ATM Withdrawal
-    ("pai atm", "ATM Withdrawal", None, None),
-    ("atm rebate", "ATM Withdrawal", None, None),
-    # Credit Card
-    ("usaa credit card payment", "Credit Card", None, None),
-    # Electric
-    ("xcel energy", "Electric", None, None),
-    # Phone
-    ("vzwrlss", "Phone", None, None),
-    # Mortgage
-    ("mr.cooper", "Mortgage", None, None),
-    ("rocket mortgage", "Mortgage", 1000, None),
+    # Home
+    ("vectra mechanical", "Home", None, None),
+    # Home Cleaning
+    ("less stress home", "Home Cleaning", None, None),
     # Home Equity Loan
     ("rocket mortgage", "Home Equity Loan", 550, 551),
-    # Car Payment
-    ("metrum community mccu", "Car Payment", None, None),
-    # Medical
-    ("kaiser", "Medical", None, None),
-    ("best in sight", "Medical", None, None),
-    ("kimberly garrison", "Medical", None, None),
-    ("hydrateivbar", "Medical", None, None),
+    # Home Insurance
+    ("usaa", "Home Insurance", 163, 168),
+    # Home Supplies
+    ("blueair", "Home Supplies", None, None),
+    ("lowe s", "Home Supplies", None, None),
+    # Incidentals
+    ("fedex", "Incidentals", None, None),
+    ("the ups", "Incidentals", None, None),
+    ("usps", "Incidentals", None, None),
+    # Income
+    ("interest", "Income", None, None),
+    # Insurance (Auto)
+    ("usaa p&c", "Insurance (Auto)", None, None),
+    # Lodging
+    ("booking.com", "Lodging", None, None),
+    ("christie lodge", "Lodging", None, None),
+    ("holiday inn", "Lodging", None, None),
+    ("king hotel", "Lodging", None, None),
+    ("outdoorsy", "Lodging", None, None),
     # Mammal (Expenses)
     ("claude ai subscr", "Mammal (Expenses)", None, None),
     ("green space", "Mammal (Expenses)", None, None),
     ("selfpublishing", "Mammal (Expenses)", None, None),
     ("veed limited", "Mammal (Expenses)", None, None),
+    # Mammal (Income)
+    ("mercor io", "Mammal (Income)", None, None),
+    # Medical
+    ("best in sight", "Medical", None, None),
+    ("hydrateivbar", "Medical", None, None),
+    ("kaiser", "Medical", None, None),
+    ("kimberly garrison", "Medical", None, None),
+    # Miscellaneous Income
+    ("deposit@mobile", "Miscellaneous Income", None, None),
+    # Mortgage
+    ("mr.cooper", "Mortgage", None, None),
+    ("rocket mortgage", "Mortgage", 1000, None),
+    # Parking
+    ("laz parking", "Parking", None, None),
+    ("rei surface lots", "Parking", None, None),
+    ("vail parking", "Parking", None, None),
+    ("vail-parking", "Parking", None, None),
+    # Payroll
+    ("trinet", "Payroll", None, None),
+    # Phone
+    ("vzwrlss", "Phone", None, None),
+    # Public Transport
+    ("mta", "Public Transport", None, None),
+    ("njt", "Public Transport", None, None),
+    ("rtd", "Public Transport", None, None),
+    # Repairs
+    ("ace hdwe", "Repairs", None, None),
+    ("jif plumbing", "Repairs", None, None),
+    ("window world", "Repairs", None, None),
     # Research & Development
     ("cu law", "Research & Development", None, None),
+    ("eatingpolicy", "Research & Development", None, None),
     ("reciprocity", "Research & Development", None, None),
-    # Home
-    ("vectra mechanical", "Home", None, None),
+    # Restaurants
+    ("aquavit", "Restaurants", None, None),
+    ("arapahoe basin f & b", "Restaurants", None, None),
+    ("armk", "Restaurants", None, None),
+    ("black diamond grille", "Restaurants", None, None),
+    ("bonsignour new york ny", "Restaurants", None, None),
+    ("capitol pizza", "Restaurants", None, None),
+    ("chavelas", "Restaurants", None, None),
+    ("chipotle", "Restaurants", None, None),
+    ("dave's bbq", "Restaurants", None, None),
+    ("delicatessen", "Restaurants", None, None),
+    ("doordash", "Restaurants", None, None),
+    ("georges cafe", "Restaurants", None, None),
+    ("half moon empanadas", "Restaurants", None, None),
+    ("las delicias", "Restaurants", None, None),
+    ("loaded joe", "Restaurants", 10, None),
+    ("los tacos", "Restaurants", None, None),
+    ("lunchboxx", "Restaurants", None, None),
+    ("mcdonald", "Restaurants", None, None),
+    ("mcdonald's", "Restaurants", None, None),
+    ("mead st station", "Restaurants", None, None),
+    ("moose jaw", "Restaurants", None, None),
+    ("mr egg", "Restaurants", None, None),
+    ("rosenberg", "Restaurants", None, None),
+    ("shake shack", "Restaurants", None, None),
+    ("sushi den", "Restaurants", None, None),
+    ("tst smok", "Restaurants", None, None),
+    ("twin star", "Restaurants", None, None),
+    ("wawa", "Restaurants", None, None),
+    ("wendys", "Restaurants", None, None),
+    ("wings food", "Restaurants", None, None),
+    # Shopping
+    ("amazon", "Shopping", None, None),
+    ("black diamond denver", "Shopping", None, None),
+    ("nike", "Shopping", None, None),
+    ("rei #", "Shopping", None, None),
+    ("rei.com", "Shopping", None, None),
+    ("scheels", "Shopping", None, None),
+    ("stiomountain", "Shopping", None, None),
+    ("target", "Shopping", None, None),
+    # Subscriptions
+    ("adobe", "Subscriptions", None, None),
+    ("apple", "Subscriptions", None, None),
+    ("apple.com/bill", "Subscriptions", None, None),
+    ("audible", "Subscriptions", None, None),
+    ("canva", "Subscriptions", None, None),
+    ("descript", "Subscriptions", None, None),
+    ("disney plus", "Subscriptions", None, None),
+    ("google", "Subscriptions", None, 10),
+    ("google *google one", "Subscriptions", None, None),
+    ("hbomax", "Subscriptions", None, None),
+    ("hulu", "Subscriptions", None, None),
+    ("linkedinprec", "Subscriptions", None, None),
+    ("microsoft", "Subscriptions", None, None),
+    ("microsoft*microsoft", "Subscriptions", None, None),
+    ("netflix", "Subscriptions", None, None),
+    ("onxmaps", "Subscriptions", None, None),
+    ("prime video", "Subscriptions", None, None),
+    ("redcircle", "Subscriptions", None, None),
+    ("rocket money", "Subscriptions", None, 10),
+    ("rocket money premium", "Subscriptions", None, None),
+    ("spotify", "Subscriptions", None, None),
+    ("the economist", "Subscriptions", None, None),
+    # Supplements
+    ("jocko fuel", "Supplements", None, None),
+    # Supplies
+    ("anthropic", "Supplies", None, None),
+    ("best buy", "Supplies", None, None),
+    # Transportation
+    ("e 470", "Transportation", None, None),
+    ("lyft", "Transportation", None, None),
+    ("rtd denver", "Transportation", None, None),
+    # Trash & Recycling
+    ("republic services trash", "Trash & Recycling", None, None),
     # Unknown/Uncategorized
     ("late fee", "Unknown/Uncategorized", None, None),
     ("monthly maintenance fee", "Unknown/Uncategorized", None, None),
     # Water
+    ("city of thornton utly", "Water", None, None),
     ("opc*adams co pwcm", "Water", None, None),
     # Wifi
     ("lumencenturylink", "Wifi", None, None),
+    # Yard
+    ("city floral", "Yard", None, None),
+    ("resource central", "Yard", None, None),
 ]
 
 

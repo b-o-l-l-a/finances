@@ -191,61 +191,98 @@ def add_category(name: str, budget: float | None, parent: str | None):
         db.close()
 
 
+REQUIRED_CATEGORIES = {
+    "Bills", "Insurance (Auto)", "Electric", "Home Equity Loan",
+    "Phone", "Medical", "Mortgage", "Water", "Wifi", "Trash & Recycling",
+    "Car Payment", "Gasoline", "Car Maintenance",
+}
+
+# Excluded from spending reports (transfers, not real expenses)
+EXCLUDED_CATEGORIES = {"Credit Card"}
+
+
 @cli.command()
-def spending():
-    """Show spending by category for current month."""
+@click.option("--ytd", is_flag=True, help="Show year-to-date instead of current month")
+@click.option("--account-id", "-a", type=int, help="Filter by account ID")
+def spending(ytd: bool, account_id: int | None):
+    """Show spending by category for current month (or YTD)."""
     from datetime import date
     from sqlalchemy import func, extract
-    from finances.models import Transaction, Category
+    from finances.models import Transaction, Category, Account
 
     db = SessionLocal()
     try:
         today = date.today()
 
-        results = (
+        query = (
             db.query(
                 Category.name,
-                Category.budget_monthly,
                 func.sum(Transaction.amount).label("spent"),
             )
             .join(Transaction, Transaction.category_id == Category.id)
             .filter(
                 extract("year", Transaction.date) == today.year,
-                extract("month", Transaction.date) == today.month,
                 Transaction.amount < 0,
+                Category.name.notin_(EXCLUDED_CATEGORIES),
             )
-            .group_by(Category.id)
-            .all()
         )
 
+        if account_id:
+            account = db.query(Account).filter(Account.id == account_id).first()
+            if not account:
+                console.print(f"[red]Account {account_id} not found.[/red]")
+                return
+            query = query.filter(Transaction.account_id == account_id)
+            account_label = f" — {account.name}"
+        else:
+            account_label = ""
+
+        if ytd:
+            title = f"Spending - YTD {today.year}{account_label}"
+        else:
+            query = query.filter(extract("month", Transaction.date) == today.month)
+            title = f"Spending - {today.strftime('%B %Y')}{account_label}"
+
+        results = query.group_by(Category.id).order_by(func.sum(Transaction.amount)).all()
+
         if not results:
-            console.print("No transactions this month.")
+            console.print("No transactions found.")
             return
 
-        table = Table(title=f"Spending - {today.strftime('%B %Y')}")
-        table.add_column("Category")
-        table.add_column("Spent", justify="right")
-        table.add_column("Budget", justify="right")
-        table.add_column("%", justify="right")
+        required_total = 0.0
+        discretionary_total = 0.0
 
-        for name, budget, spent in results:
-            spent_abs = abs(spent)
+        req_table = Table(title=f"{title} — Required")
+        req_table.add_column("Category")
+        req_table.add_column("Spent", justify="right")
+
+        disc_table = Table(title=f"{title} — Discretionary")
+        disc_table.add_column("Category")
+        disc_table.add_column("Spent", justify="right")
+
+        for name, spent in results:
+            spent_abs = abs(float(spent))
             spent_str = f"${spent_abs:,.2f}"
-            budget_str = f"${budget:,.2f}" if budget else "-"
-
-            if budget:
-                pct = (spent_abs / float(budget)) * 100
-                pct_str = f"{pct:.0f}%"
-                if pct >= 90:
-                    pct_str = f"[red]{pct_str} ⚠️[/red]"
-                elif pct >= 75:
-                    pct_str = f"[yellow]{pct_str}[/yellow]"
+            if name in REQUIRED_CATEGORIES:
+                req_table.add_row(name, spent_str)
+                required_total += spent_abs
             else:
-                pct_str = "-"
+                disc_table.add_row(name, spent_str)
+                discretionary_total += spent_abs
 
-            table.add_row(name, spent_str, budget_str, pct_str)
+        req_table.add_section()
+        req_table.add_row("[bold]Total[/bold]", f"[bold]${required_total:,.2f}[/bold]")
 
-        console.print(table)
+        disc_table.add_section()
+        disc_table.add_row("[bold]Total[/bold]", f"[bold]${discretionary_total:,.2f}[/bold]")
+
+        console.print(req_table)
+        console.print()
+        console.print(disc_table)
+        console.print()
+        console.print(f"[bold]Required:[/bold]      ${required_total:,.2f}")
+        console.print(f"[bold]Discretionary:[/bold] ${discretionary_total:,.2f}")
+        console.print(f"[bold]Total:[/bold]         ${required_total + discretionary_total:,.2f}")
     finally:
         db.close()
 
