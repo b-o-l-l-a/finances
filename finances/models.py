@@ -27,6 +27,7 @@ class Institution(Enum):
     US_BANK = ("us_bank", "US Bank")
     AMAZON = ("amazon", "Amazon")
     VENMO = ("venmo", "Venmo")
+    AMEX = ("amex", "American Express")
 
     def __init__(self, code: str, display_name: str):
         self.code = code
@@ -117,6 +118,10 @@ class Transaction(Base):
 
     # Budget flags
     one_time: Mapped[bool] = mapped_column(default=False)  # exclude from budget suggestions
+
+    # Tax / LLC flags
+    business_expense: Mapped[bool] = mapped_column(default=False)
+    business_purpose: Mapped[Optional[str]] = mapped_column(String(255))
 
     # External IDs for deduplication
     external_transaction_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
