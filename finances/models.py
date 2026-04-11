@@ -115,6 +115,9 @@ class Transaction(Base):
         SQLEnum(TransactionSource), default=TransactionSource.MANUAL
     )
 
+    # Budget flags
+    one_time: Mapped[bool] = mapped_column(default=False)  # exclude from budget suggestions
+
     # External IDs for deduplication
     external_transaction_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
     external_id: Mapped[Optional[str]] = mapped_column(String(255))  # Amazon order ID, etc.

@@ -818,6 +818,208 @@ def manual_categorize():
 
 
 @cli.command()
+@click.option("--months", "-m", default=3, help="Number of months of history to analyze (default 3)")
+@click.option("--apply", "apply_budgets", is_flag=True, help="Save suggested budgets to categories")
+def suggest_budget(months: int, apply_budgets: bool):
+    """Suggest monthly budgets based on average historical spending.
+
+    Analyzes categorized transactions over the past N months and computes
+    average monthly spend per category. Use --apply to save the suggestions.
+    """
+    from datetime import date
+    from dateutil.relativedelta import relativedelta
+    from sqlalchemy import func, extract
+    from finances.models import Transaction, Category
+
+    db = SessionLocal()
+    try:
+        today = date.today()
+        # Start of the window: first day of the month N months ago
+        start_date = (today.replace(day=1) - relativedelta(months=months))
+
+        # Only look at complete months (exclude the current partial month)
+        end_date = today.replace(day=1)
+
+        results = (
+            db.query(
+                Category.id,
+                Category.name,
+                Category.budget_monthly,
+                extract("year", Transaction.date).label("year"),
+                extract("month", Transaction.date).label("month"),
+                func.sum(Transaction.amount).label("monthly_total"),
+            )
+            .join(Transaction, Transaction.category_id == Category.id)
+            .filter(
+                Transaction.date >= start_date,
+                Transaction.date < end_date,
+                Transaction.amount < 0,
+                Transaction.one_time.is_(False),
+                Category.name.notin_(EXCLUDED_CATEGORIES),
+            )
+            .group_by(Category.id, Category.name, Category.budget_monthly, "year", "month")
+            .all()
+        )
+
+        if not results:
+            console.print(f"[yellow]No categorized transactions found in the last {months} complete months.[/yellow]")
+            return
+
+        # Aggregate: sum per category across all months, then divide by months
+        from collections import defaultdict
+        monthly_totals: dict[int, dict] = defaultdict(lambda: {"name": "", "budget_monthly": None, "month_sums": []})
+
+        for cat_id, cat_name, budget, _year, _month, total in results:
+            monthly_totals[cat_id]["name"] = cat_name
+            monthly_totals[cat_id]["budget_monthly"] = budget
+            monthly_totals[cat_id]["month_sums"].append(abs(float(total)))
+
+        title = f"Budget Suggestions — avg of last {months} complete months (ending {end_date.strftime('%b %Y')})"
+
+        def make_table(label: str) -> Table:
+            t = Table(title=f"{title} — {label}")
+            t.add_column("Category")
+            t.add_column("Avg/Month", justify="right")
+            t.add_column("Current Budget", justify="right")
+            t.add_column("Suggested", justify="right")
+            t.add_column("", style="dim")
+            return t
+
+        req_table = make_table("Required")
+        disc_table = make_table("Discretionary")
+
+        suggestions: list[tuple[int, float]] = []  # (category_id, suggested_budget)
+        req_total = disc_total = 0.0
+
+        for cat_id, data in sorted(monthly_totals.items(), key=lambda x: -sum(x[1]["month_sums"]) / len(x[1]["month_sums"])):
+            avg = sum(data["month_sums"]) / months  # divide by total months, not just months with data
+            current = data["budget_monthly"]
+            suggested = round(avg, 2)
+
+            current_str = f"${float(current):,.2f}" if current else "-"
+            suggested_str = f"${suggested:,.2f}"
+
+            if current:
+                diff = suggested - float(current)
+                note = f"+${diff:,.2f}" if diff > 0 else f"-${abs(diff):,.2f}" if diff < 0 else "same"
+                note_color = "red" if diff > 5 else "green" if diff < -5 else "dim"
+                note_str = f"[{note_color}]{note}[/{note_color}]"
+            else:
+                note_str = "[dim]new[/dim]"
+
+            if data["name"] in REQUIRED_CATEGORIES:
+                req_table.add_row(data["name"], f"${avg:,.2f}", current_str, suggested_str, note_str)
+                req_total += suggested
+            else:
+                disc_table.add_row(data["name"], f"${avg:,.2f}", current_str, suggested_str, note_str)
+                disc_total += suggested
+
+            suggestions.append((cat_id, suggested))
+
+        req_table.add_section()
+        req_table.add_row("[bold]Total[/bold]", "", "", f"[bold]${req_total:,.2f}[/bold]", "")
+        disc_table.add_section()
+        disc_table.add_row("[bold]Total[/bold]", "", "", f"[bold]${disc_total:,.2f}[/bold]", "")
+
+        console.print(req_table)
+        console.print()
+        console.print(disc_table)
+        console.print()
+        console.print(f"[bold]Required:[/bold]      ${req_total:,.2f}")
+        console.print(f"[bold]Discretionary:[/bold] ${disc_total:,.2f}")
+        console.print(f"[bold]Total:[/bold]         ${req_total + disc_total:,.2f}")
+        console.print(f"\n[dim]Window: {start_date.strftime('%b %Y')} – {(end_date - relativedelta(months=1)).strftime('%b %Y')} ({months} months)[/dim]")
+
+        if apply_budgets:
+            for cat_id, suggested in suggestions:
+                cat = db.query(Category).filter(Category.id == cat_id).first()
+                if cat:
+                    cat.budget_monthly = suggested
+            db.commit()
+            console.print(f"[green]Applied {len(suggestions)} budget suggestions.[/green]")
+        else:
+            console.print("\n[cyan]Run with --apply to save these budgets.[/cyan]")
+
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.option("--category", "-c", help="Filter by category name")
+@click.option("--min-amount", "-m", type=float, help="Only show transactions above this amount")
+@click.option("--limit", "-n", default=50, help="Max transactions to show (default 50)")
+def mark_one_time(category: str | None, min_amount: float | None, limit: int):
+    """Interactively mark transactions as one-time (excluded from budget suggestions)."""
+    from finances.models import Transaction, Category
+
+    db = SessionLocal()
+    try:
+        query = db.query(Transaction).filter(Transaction.amount < 0)
+
+        if category:
+            cat = db.query(Category).filter(Category.name.ilike(category)).first()
+            if not cat:
+                console.print(f"[red]Category '{category}' not found.[/red]")
+                return
+            query = query.filter(Transaction.category_id == cat.id)
+
+        if min_amount:
+            query = query.filter(Transaction.amount <= -abs(min_amount))
+
+        txns = query.order_by(Transaction.amount).limit(limit).all()
+
+        if not txns:
+            console.print("No transactions match the filter.")
+            return
+
+        while True:
+            table = Table(title="Transactions (sorted by amount)")
+            table.add_column("#", style="dim")
+            table.add_column("Date")
+            table.add_column("Merchant")
+            table.add_column("Amount", justify="right")
+            table.add_column("Category")
+            table.add_column("One-Time", justify="center")
+
+            for i, txn in enumerate(txns, 1):
+                flag = "[yellow]yes[/yellow]" if txn.one_time else "-"
+                cat_name = txn.category.name if txn.category else "-"
+                table.add_row(
+                    str(i),
+                    str(txn.date),
+                    txn.merchant[:45],
+                    f"[red]-${abs(float(txn.amount)):,.2f}[/red]",
+                    cat_name,
+                    flag,
+                )
+
+            console.print(table)
+            console.print("\n[cyan]Enter # to toggle one-time flag (or 'q' to quit):[/cyan]")
+            choice = input("> ").strip().lower()
+
+            if choice == 'q':
+                break
+
+            try:
+                idx = int(choice) - 1
+                if idx < 0 or idx >= len(txns):
+                    console.print("[red]Invalid selection.[/red]")
+                    continue
+            except ValueError:
+                console.print("[red]Enter a number or 'q'.[/red]")
+                continue
+
+            txn = txns[idx]
+            txn.one_time = not txn.one_time
+            db.commit()
+            status = "[yellow]one-time[/yellow]" if txn.one_time else "[green]normal[/green]"
+            console.print(f"Marked [bold]{txn.merchant[:40]}[/bold] as {status}")
+
+    finally:
+        db.close()
+
+
+@cli.command()
 @click.option("--dry-run", is_flag=True, help="Show what would be categorized without saving")
 def auto_categorize(dry_run: bool):
     """Apply categorization rules to uncategorized transactions."""
