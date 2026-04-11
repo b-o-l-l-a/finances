@@ -450,6 +450,8 @@ def link():
                     institution = Institution.US_BANK
                 elif "usaa" in inst_name_lower:
                     institution = Institution.USAA
+                elif "american express" in inst_name_lower or "amex" in inst_name_lower:
+                    institution = Institution.AMEX
             except Exception:
                 institution = Institution.USAA
 
@@ -752,14 +754,18 @@ def manual_categorize():
             categories_flat = get_categories_flat()
 
             console.print("\n[bold]Categories:[/bold]")
-            cat_table = Table(show_header=False, box=None)
-            cat_table.add_column("#", style="dim", width=4)
-            cat_table.add_column("Name")
+            num_cols = 3
+            num_rows = -(-len(categories_flat) // num_cols)  # ceiling division
+            col_tables = [Table(show_header=False, box=None, padding=(0, 1)) for _ in range(num_cols)]
+            for col in col_tables:
+                col.add_column("#", style="dim", width=4)
+                col.add_column("Name")
 
             for i, (cat, display_name) in enumerate(categories_flat, 1):
-                cat_table.add_row(str(i), display_name)
+                col_tables[(i - 1) // num_rows].add_row(str(i), display_name)
 
-            console.print(cat_table)
+            from rich.columns import Columns
+            console.print(Columns(col_tables))
 
             # Prompt for category selection
             console.print("\n[cyan]Enter category # or name (or 's' to skip):[/cyan]")
@@ -1014,6 +1020,209 @@ def mark_one_time(category: str | None, min_amount: float | None, limit: int):
             db.commit()
             status = "[yellow]one-time[/yellow]" if txn.one_time else "[green]normal[/green]"
             console.print(f"Marked [bold]{txn.merchant[:40]}[/bold] as {status}")
+
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.option("--category", "-c", help="Filter by category name")
+@click.option("--min-amount", "-m", type=float, help="Only show transactions above this amount")
+@click.option("--year", "-y", type=int, help="Filter by year (default: current year)")
+@click.option("--limit", "-n", default=50, help="Max transactions to show (default 50)")
+def mark_business(category: str | None, min_amount: float | None, year: int | None, limit: int):
+    """Interactively tag transactions as LLC business expenses."""
+    from datetime import date
+    from finances.models import Transaction, Category
+
+    db = SessionLocal()
+    try:
+        target_year = year or date.today().year
+        query = (
+            db.query(Transaction)
+            .filter(
+                Transaction.amount < 0,
+                Transaction.date >= date(target_year, 1, 1),
+                Transaction.date <= date(target_year, 12, 31),
+            )
+        )
+
+        if category:
+            cat = db.query(Category).filter(Category.name.ilike(category)).first()
+            if not cat:
+                console.print(f"[red]Category '{category}' not found.[/red]")
+                return
+            query = query.filter(Transaction.category_id == cat.id)
+
+        if min_amount:
+            query = query.filter(Transaction.amount <= -abs(min_amount))
+
+        txns = query.order_by(Transaction.amount).limit(limit).all()
+
+        if not txns:
+            console.print("No transactions match the filter.")
+            return
+
+        while True:
+            table = Table(title=f"Transactions — {target_year} (sorted by amount)")
+            table.add_column("#", style="dim")
+            table.add_column("Date")
+            table.add_column("Merchant")
+            table.add_column("Amount", justify="right")
+            table.add_column("Category")
+            table.add_column("Business", justify="center")
+            table.add_column("Purpose", style="dim")
+
+            for i, txn in enumerate(txns, 1):
+                flag = "[green]yes[/green]" if txn.business_expense else "-"
+                cat_name = txn.category.name if txn.category else "-"
+                table.add_row(
+                    str(i),
+                    str(txn.date),
+                    txn.merchant[:40],
+                    f"[red]-${abs(float(txn.amount)):,.2f}[/red]",
+                    cat_name,
+                    flag,
+                    txn.business_purpose or "",
+                )
+
+            console.print(table)
+            console.print("\n[cyan]Enter # to toggle business expense (or 'q' to quit):[/cyan]")
+            choice = input("> ").strip().lower()
+
+            if choice == 'q':
+                break
+
+            try:
+                idx = int(choice) - 1
+                if idx < 0 or idx >= len(txns):
+                    console.print("[red]Invalid selection.[/red]")
+                    continue
+            except ValueError:
+                console.print("[red]Enter a number or 'q'.[/red]")
+                continue
+
+            txn = txns[idx]
+
+            if txn.business_expense:
+                # Toggle off
+                txn.business_expense = False
+                txn.business_purpose = None
+                db.commit()
+                console.print(f"[dim]Removed business tag from {txn.merchant[:40]}[/dim]")
+            else:
+                # Toggle on — prompt for purpose
+                console.print(f"[cyan]Business purpose for '{txn.merchant[:40]}' (required):[/cyan]")
+                purpose = input("> ").strip()
+                if not purpose:
+                    console.print("[red]Purpose is required.[/red]")
+                    continue
+                txn.business_expense = True
+                txn.business_purpose = purpose
+                db.commit()
+                console.print(f"[green]Tagged as business: {txn.merchant[:40]} — {purpose}[/green]")
+
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.option("--year", "-y", type=int, help="Tax year (default: current year)")
+def business_report(year: int | None):
+    """Show LLC business expenses by category for tax reporting."""
+    from datetime import date
+    from sqlalchemy import func
+    from finances.models import Transaction, Category
+
+    db = SessionLocal()
+    try:
+        target_year = year or date.today().year
+
+        results = (
+            db.query(
+                Category.name,
+                func.sum(Transaction.amount).label("total"),
+                func.count(Transaction.id).label("count"),
+            )
+            .join(Transaction, Transaction.category_id == Category.id)
+            .filter(
+                Transaction.business_expense.is_(True),
+                Transaction.date >= date(target_year, 1, 1),
+                Transaction.date <= date(target_year, 12, 31),
+            )
+            .group_by(Category.id, Category.name)
+            .order_by(func.sum(Transaction.amount))
+            .all()
+        )
+
+        # Also grab uncategorized business expenses
+        uncategorized_total = (
+            db.query(func.sum(Transaction.amount))
+            .filter(
+                Transaction.business_expense.is_(True),
+                Transaction.category_id.is_(None),
+                Transaction.date >= date(target_year, 1, 1),
+                Transaction.date <= date(target_year, 12, 31),
+            )
+            .scalar()
+        )
+
+        # Detail rows
+        detail = (
+            db.query(Transaction)
+            .filter(
+                Transaction.business_expense.is_(True),
+                Transaction.date >= date(target_year, 1, 1),
+                Transaction.date <= date(target_year, 12, 31),
+            )
+            .order_by(Transaction.date)
+            .all()
+        )
+
+        if not detail:
+            console.print(f"[yellow]No business expenses tagged for {target_year}.[/yellow]")
+            return
+
+        # Summary table
+        summary = Table(title=f"LLC Business Expenses — {target_year} Summary")
+        summary.add_column("Category")
+        summary.add_column("# Txns", justify="right")
+        summary.add_column("Total", justify="right")
+
+        grand_total = 0.0
+        for cat_name, total, count in results:
+            amt = abs(float(total))
+            grand_total += amt
+            summary.add_row(cat_name, str(count), f"${amt:,.2f}")
+
+        if uncategorized_total:
+            amt = abs(float(uncategorized_total))
+            grand_total += amt
+            summary.add_row("[dim]Uncategorized[/dim]", "-", f"${amt:,.2f}")
+
+        summary.add_section()
+        summary.add_row("[bold]Total[/bold]", "", f"[bold]${grand_total:,.2f}[/bold]")
+        console.print(summary)
+        console.print()
+
+        # Detail table
+        detail_table = Table(title=f"LLC Business Expenses — {target_year} Detail")
+        detail_table.add_column("Date")
+        detail_table.add_column("Merchant")
+        detail_table.add_column("Amount", justify="right")
+        detail_table.add_column("Category")
+        detail_table.add_column("Purpose")
+
+        for txn in detail:
+            detail_table.add_row(
+                str(txn.date),
+                txn.merchant[:40],
+                f"${abs(float(txn.amount)):,.2f}",
+                txn.category.name if txn.category else "-",
+                txn.business_purpose or "",
+            )
+
+        console.print(detail_table)
 
     finally:
         db.close()
