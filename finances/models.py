@@ -103,6 +103,16 @@ class CategoryRule(Base):
     category: Mapped["Category"] = relationship(back_populates="rules")
 
 
+class BusinessRule(Base):
+    """Rule for auto-tagging transactions as business expenses by merchant pattern."""
+    __tablename__ = "business_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pattern: Mapped[str] = mapped_column(String(255))  # case-insensitive substring match
+    business_purpose: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class Transaction(Base):
     """A normalized transaction from any source."""
     __tablename__ = "transactions"

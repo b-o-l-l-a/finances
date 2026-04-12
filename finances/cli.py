@@ -191,6 +191,28 @@ def add_category(name: str, budget: float | None, parent: str | None):
         db.close()
 
 
+# Schedule C (Form 1040) expense categories
+SCHEDULE_C_CATEGORIES = [
+    "Advertising",
+    "Car and truck expenses",
+    "Commissions and fees",
+    "Contract labor",
+    "Depreciation and Section 179",
+    "Insurance",
+    "Legal and professional services",
+    "Office expense",
+    "Rent/lease - equipment",
+    "Rent/lease - property",
+    "Repairs and maintenance",
+    "Supplies",
+    "Taxes and licenses",
+    "Travel",
+    "Meals (50% deductible)",
+    "Utilities",
+    "Other expenses",
+]
+
+
 REQUIRED_CATEGORIES = {
     "Bills", "Insurance (Auto)", "Electric", "Home Equity Loan",
     "Phone", "Medical", "Mortgage", "Water", "Wifi", "Trash & Recycling",
@@ -1111,11 +1133,9 @@ def mark_business(category: str | None, min_amount: float | None, year: int | No
                 db.commit()
                 console.print(f"[dim]Removed business tag from {txn.merchant[:40]}[/dim]")
             else:
-                # Toggle on — prompt for purpose
-                console.print(f"[cyan]Business purpose for '{txn.merchant[:40]}' (required):[/cyan]")
-                purpose = input("> ").strip()
+                # Toggle on — pick Schedule C category
+                purpose = _pick_schedule_c_category(f"Schedule C category for '{txn.merchant[:40]}'")
                 if not purpose:
-                    console.print("[red]Purpose is required.[/red]")
                     continue
                 txn.business_expense = True
                 txn.business_purpose = purpose
@@ -1223,6 +1243,134 @@ def business_report(year: int | None):
             )
 
         console.print(detail_table)
+
+    finally:
+        db.close()
+
+
+def _pick_schedule_c_category(prompt: str = "Select Schedule C category") -> str | None:
+    """Interactive Schedule C category picker. Returns selected category or None."""
+    table = Table(show_header=False, box=None)
+    table.add_column("#", style="dim", width=4)
+    table.add_column("Category")
+    for i, cat in enumerate(SCHEDULE_C_CATEGORIES, 1):
+        table.add_row(str(i), cat)
+    console.print(table)
+    console.print(f"\n[cyan]{prompt} (enter # or 'q' to cancel):[/cyan]")
+    choice = input("> ").strip()
+    if choice.lower() == 'q':
+        return None
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(SCHEDULE_C_CATEGORIES):
+            return SCHEDULE_C_CATEGORIES[idx]
+    except ValueError:
+        pass
+    console.print("[red]Invalid selection.[/red]")
+    return None
+
+
+@cli.command()
+@click.argument("pattern")
+def add_business_rule(pattern: str):
+    """Add a rule to auto-tag transactions as business expenses.
+
+    Example: add-business-rule "the economist"
+    """
+    from finances.models import BusinessRule
+
+    db = SessionLocal()
+    try:
+        existing = db.query(BusinessRule).filter(BusinessRule.pattern.ilike(pattern)).first()
+        if existing:
+            console.print(f"[yellow]Rule for '{pattern}' already exists (purpose: {existing.business_purpose}).[/yellow]")
+            return
+
+        purpose = _pick_schedule_c_category(f"Schedule C category for '{pattern}'")
+        if not purpose:
+            return
+
+        rule = BusinessRule(pattern=pattern.lower(), business_purpose=purpose)
+        db.add(rule)
+        db.commit()
+        console.print(f"[green]Business rule added: '{pattern}' → {purpose}[/green]")
+    finally:
+        db.close()
+
+
+@cli.command()
+def business_rules():
+    """List business expense rules."""
+    from finances.models import BusinessRule
+
+    db = SessionLocal()
+    try:
+        rules = db.query(BusinessRule).order_by(BusinessRule.pattern).all()
+        if not rules:
+            console.print("No business rules defined. Use 'add-business-rule' to create one.")
+            return
+
+        table = Table(title="Business Expense Rules")
+        table.add_column("ID", style="dim")
+        table.add_column("Pattern")
+        table.add_column("Purpose")
+
+        for rule in rules:
+            table.add_row(str(rule.id), rule.pattern, rule.business_purpose)
+
+        console.print(table)
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.option("--year", "-y", type=int, help="Only apply to transactions in this year")
+@click.option("--dry-run", is_flag=True, help="Show what would be tagged without saving")
+def auto_tag_business(year: int | None, dry_run: bool):
+    """Apply business expense rules to untagged transactions."""
+    from datetime import date
+    from finances.models import Transaction, BusinessRule
+
+    db = SessionLocal()
+    try:
+        rules = db.query(BusinessRule).all()
+        if not rules:
+            console.print("No business rules defined. Use 'add-business-rule' to create rules first.")
+            return
+
+        query = db.query(Transaction).filter(
+            Transaction.business_expense.is_(False),
+            Transaction.amount < 0,
+        )
+        if year:
+            query = query.filter(
+                Transaction.date >= date(year, 1, 1),
+                Transaction.date <= date(year, 12, 31),
+            )
+
+        transactions = query.all()
+        if not transactions:
+            console.print("No untagged transactions found.")
+            return
+
+        tagged_count = 0
+        for txn in transactions:
+            merchant_lower = txn.merchant.lower()
+            for rule in rules:
+                if rule.pattern in merchant_lower:
+                    if dry_run:
+                        console.print(f"  {txn.date} {txn.merchant[:40]} (${abs(float(txn.amount)):,.2f}) → {rule.business_purpose}")
+                    else:
+                        txn.business_expense = True
+                        txn.business_purpose = rule.business_purpose
+                    tagged_count += 1
+                    break
+
+        if not dry_run:
+            db.commit()
+            console.print(f"[green]Tagged {tagged_count} transactions as business expenses.[/green]")
+        else:
+            console.print(f"\n[cyan]Dry run: would tag {tagged_count} transactions.[/cyan]")
 
     finally:
         db.close()
