@@ -22,3 +22,9 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Personal data directories — track structure only, not contents
+conversations/*
+!conversations/__init__.py
+taxes/*
+!taxes/__init__.py
