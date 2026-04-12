@@ -994,14 +994,14 @@ def mark_one_time(category: str | None, min_amount: float | None, limit: int):
         if min_amount:
             query = query.filter(Transaction.amount <= -abs(min_amount))
 
-        txns = query.order_by(Transaction.amount).limit(limit).all()
+        txns = query.order_by(Transaction.date.desc(), Transaction.amount).limit(limit).all()
 
         if not txns:
             console.print("No transactions match the filter.")
             return
 
         while True:
-            table = Table(title="Transactions (sorted by amount)")
+            table = Table(title="Transactions (sorted by date)")
             table.add_column("#", style="dim")
             table.add_column("Date")
             table.add_column("Merchant")
@@ -1079,14 +1079,14 @@ def mark_business(category: str | None, min_amount: float | None, year: int | No
         if min_amount:
             query = query.filter(Transaction.amount <= -abs(min_amount))
 
-        txns = query.order_by(Transaction.amount).limit(limit).all()
+        txns = query.order_by(Transaction.date.desc(), Transaction.amount).limit(limit).all()
 
         if not txns:
             console.print("No transactions match the filter.")
             return
 
         while True:
-            table = Table(title=f"Transactions — {target_year} (sorted by amount)")
+            table = Table(title=f"Transactions — {target_year} (sorted by date)")
             table.add_column("#", style="dim")
             table.add_column("Date")
             table.add_column("Merchant")
@@ -1203,21 +1203,51 @@ def business_report(year: int | None):
             console.print(f"[yellow]No business expenses tagged for {target_year}.[/yellow]")
             return
 
-        # Summary table
-        summary = Table(title=f"LLC Business Expenses — {target_year} Summary")
+        # Schedule C summary — grouped by business_purpose
+        schedule_c = (
+            db.query(
+                Transaction.business_purpose,
+                func.sum(Transaction.amount).label("total"),
+                func.count(Transaction.id).label("count"),
+            )
+            .filter(
+                Transaction.business_expense.is_(True),
+                Transaction.date >= date(target_year, 1, 1),
+                Transaction.date <= date(target_year, 12, 31),
+            )
+            .group_by(Transaction.business_purpose)
+            .order_by(func.sum(Transaction.amount))
+            .all()
+        )
+
+        schedule_c_table = Table(title=f"LLC Business Expenses — {target_year} by Schedule C")
+        schedule_c_table.add_column("Schedule C Line")
+        schedule_c_table.add_column("# Txns", justify="right")
+        schedule_c_table.add_column("Total", justify="right")
+
+        grand_total = 0.0
+        for purpose, total, count in schedule_c:
+            amt = abs(float(total))
+            grand_total += amt
+            schedule_c_table.add_row(purpose or "[dim]Unassigned[/dim]", str(count), f"${amt:,.2f}")
+
+        schedule_c_table.add_section()
+        schedule_c_table.add_row("[bold]Total[/bold]", "", f"[bold]${grand_total:,.2f}[/bold]")
+        console.print(schedule_c_table)
+        console.print()
+
+        # Summary by spending category
+        summary = Table(title=f"LLC Business Expenses — {target_year} by Category")
         summary.add_column("Category")
         summary.add_column("# Txns", justify="right")
         summary.add_column("Total", justify="right")
 
-        grand_total = 0.0
         for cat_name, total, count in results:
             amt = abs(float(total))
-            grand_total += amt
             summary.add_row(cat_name, str(count), f"${amt:,.2f}")
 
         if uncategorized_total:
             amt = abs(float(uncategorized_total))
-            grand_total += amt
             summary.add_row("[dim]Uncategorized[/dim]", "-", f"${amt:,.2f}")
 
         summary.add_section()
