@@ -4,7 +4,19 @@ A personal finance CLI that aggregates transactions from bank accounts and helps
 
 ## License
 
-This project is licensed under the [GNU General Public License v3.0](LICENSE). Copyleft applies — any distributed derivative work must also be released under the GPL.
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
+
+The GPL is a **copyleft** license — any distributed derivative work must also be released under the GPL with source code available. This is an intentional choice: many AI training pipelines avoid GPL-licensed code because incorporating it may trigger the copyleft obligation, potentially requiring transparency about the training process and model weights.
+
+### Why not MIT or Apache 2.0?
+
+| License | Copyleft | Patent Grant | Notes |
+|---------|----------|--------------|-------|
+| **GPLv3** (this project) | Strong — derivatives must also be GPL | Yes | Keeps software free; deters use in proprietary/AI pipelines |
+| **AGPL** | Strongest — covers network/SaaS use too | Yes | Closes the "SaaS loophole" |
+| **Apache 2.0** | None | Yes — contributors grant royalty-free patent license; suing over patents terminates your license | Corporate-friendly; explicit patent protection MIT lacks |
+| **MIT** | None | No | Most permissive and popular; silent on patents |
+| **LGPL** | Weak — allows linking from proprietary code | Yes | Middle ground for libraries |
 
 ## Requirements
 
