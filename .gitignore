@@ -23,8 +23,10 @@ venv/
 .coverage
 htmlcov/
 
-# Personal data directories — track structure only, not contents
-conversations/*
-!conversations/__init__.py
-taxes/*
-!taxes/__init__.py
+# Personal data directories — fully ignored
+conversations/
+documents/
+summaries/
+
+# macOS
+.DS_Store
