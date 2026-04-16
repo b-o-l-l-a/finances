@@ -23,10 +23,27 @@ venv/
 .coverage
 htmlcov/
 
-# Personal data directories — fully ignored
-conversations/
-documents/
-summaries/
+# Personal data directories — scaffold only, contents ignored
+conversations/*
+!conversations/.gitkeep
+
+documents/*
+!documents/.gitkeep
+!documents/taxes/
+!documents/invoices/
+!documents/insurance/
+!documents/contracts/
+documents/taxes/*
+!documents/taxes/.gitkeep
+documents/invoices/*
+!documents/invoices/.gitkeep
+documents/insurance/*
+!documents/insurance/.gitkeep
+documents/contracts/*
+!documents/contracts/.gitkeep
+
+summaries/*
+!summaries/.gitkeep
 
 # macOS
 .DS_Store
