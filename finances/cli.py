@@ -80,6 +80,18 @@ TELLER_CONNECT_HTML = """
 """
 
 
+def parse_since_date(since: str | None):
+    """Parse a YYYY-MM-DD date string, printing an error and returning None on failure."""
+    import datetime
+    if not since:
+        return None
+    try:
+        return datetime.date.fromisoformat(since)
+    except ValueError:
+        console.print(f"[red]Invalid date format: {since}. Use YYYY-MM-DD.[/red]")
+        return None
+
+
 @click.group()
 def cli():
     """Personal finance tracker - aggregate and analyze spending."""
@@ -502,10 +514,15 @@ def link():
 @cli.command()
 @click.option("--account-id", "-a", type=int, help="Sync specific account by ID")
 @click.option("--count", "-n", default=100, help="Number of transactions to fetch per account (default 100)")
-def sync(account_id: int | None, count: int):
+@click.option("--since", default=None, help="Only import transactions on or after this date (YYYY-MM-DD).")
+def sync(account_id: int | None, count: int, since: str | None):
     """Sync transactions from connected bank accounts."""
     from finances.models import Account, Transaction, TransactionSource
     from finances.teller import TellerClient, parse_teller_date
+
+    since_date = parse_since_date(since)
+    if since and since_date is None:
+        return
 
     db = SessionLocal()
     try:
@@ -533,6 +550,9 @@ def sync(account_id: int | None, count: int):
 
             new_count = 0
             for txn_data in transactions:
+                if since_date and parse_teller_date(txn_data["date"]) < since_date:
+                    continue
+
                 # Skip if transaction already exists
                 existing = db.query(Transaction).filter(
                     Transaction.external_transaction_id == txn_data["id"]
@@ -697,20 +717,26 @@ def rules():
 
 
 @cli.command()
-def manual_categorize():
+@click.option("--since", default=None, help="Only show transactions on or after this date (YYYY-MM-DD).")
+def manual_categorize(since):
     """Interactively categorize uncategorized transactions."""
     from finances.models import Transaction, Category
+
+    since_date = parse_since_date(since)
+    if since and since_date is None:
+        return
 
     db = SessionLocal()
     try:
         while True:
             # Get uncategorized transactions
-            uncategorized = (
+            query = (
                 db.query(Transaction)
                 .filter(Transaction.category_id.is_(None))
-                .order_by(Transaction.date.desc())
-                .all()
             )
+            if since_date:
+                query = query.filter(Transaction.date >= since_date)
+            uncategorized = query.order_by(Transaction.date.desc()).all()
 
             if not uncategorized:
                 console.print("[green]No uncategorized transactions remaining![/green]")
