@@ -323,18 +323,21 @@ def spending(ytd: bool, account_id: int | None):
 
 @cli.command()
 @click.option("--limit", "-n", default=20, help="Number of transactions to show")
-def transactions(limit: int):
+@click.option("--since", default=None, help="Only show transactions on or after this date (YYYY-MM-DD).")
+def transactions(limit: int, since: str | None):
     """List recent transactions."""
     from finances.models import Transaction
 
+    since_date = parse_since_date(since)
+    if since and since_date is None:
+        return
+
     db = SessionLocal()
     try:
-        txns = (
-            db.query(Transaction)
-            .order_by(Transaction.date.desc())
-            .limit(limit)
-            .all()
-        )
+        query = db.query(Transaction).order_by(Transaction.date.desc())
+        if since_date:
+            query = query.filter(Transaction.date >= since_date)
+        txns = query.limit(limit).all()
 
         if not txns:
             console.print("No transactions yet.")
@@ -685,15 +688,20 @@ def add_rule(pattern: str, category_name: str, min_amount: float | None, max_amo
 
 
 @cli.command()
-def rules():
+@click.option("--search", "-s", default=None, help="Filter rules by pattern substring.")
+def rules(search: str | None):
     """List categorization rules."""
     from finances.models import CategoryRule
 
     db = SessionLocal()
     try:
-        all_rules = db.query(CategoryRule).order_by(CategoryRule.pattern).all()
+        query = db.query(CategoryRule).order_by(CategoryRule.pattern)
+        if search:
+            query = query.filter(CategoryRule.pattern.contains(search.lower()))
+        all_rules = query.all()
         if not all_rules:
-            console.print("No rules defined. Use 'add-rule' to create one.")
+            msg = f"No rules matching '{search}'." if search else "No rules defined. Use 'add-rule' to create one."
+            console.print(msg)
             return
 
         table = Table(title="Categorization Rules")
@@ -1488,6 +1496,133 @@ def auto_categorize(dry_run: bool):
         remaining = len(uncategorized) - categorized_count
         if remaining > 0:
             console.print(f"[yellow]{remaining} transactions still uncategorized.[/yellow]")
+    finally:
+        db.close()
+
+
+BANK_CSV_PRESETS = {
+    "usaa": {
+        "date_col": "Date",
+        "merchant_col": "Description",
+        "amount_col": "Amount",
+        "status_col": "Status",
+        "skip_status": ["Pending", "Declined"],
+        "negate_amount": False,
+    },
+    "usaa_cc": {
+        "date_col": "Date",
+        "merchant_col": "Description",
+        "amount_col": "Amount",
+        "status_col": "Status",
+        "skip_status": ["Pending", "Declined"],
+        "negate_amount": True,
+    },
+    "us_bank": {
+        "date_col": "Date",
+        "merchant_col": "Name",
+        "amount_col": "Amount",
+        "status_col": None,
+        "skip_status": [],
+        "negate_amount": False,
+    },
+}
+
+
+@cli.command("import-csv")
+@click.argument("filepath", type=click.Path(exists=True))
+@click.option("--bank", type=click.Choice(["usaa", "usaa_cc", "us_bank"]), required=True, help="Bank preset for column mapping.")
+@click.option("--account-id", type=int, required=True, help="Account ID to associate transactions with.")
+@click.option("--include-pending", is_flag=True, default=False, help="Include pending transactions (skipped by default).")
+@click.option("--dry-run", is_flag=True, help="Show what would be imported without saving.")
+def import_csv(filepath: str, bank: str, account_id: int, include_pending: bool, dry_run: bool):
+    """Import transactions from a bank CSV export."""
+    import csv
+    import datetime
+    from decimal import Decimal
+    from finances.models import Transaction, TransactionSource, Account
+
+    preset = BANK_CSV_PRESETS[bank]
+    db = SessionLocal()
+    try:
+        account = db.get(Account, account_id)
+        if not account:
+            console.print(f"[red]No account with ID {account_id}.[/red]")
+            return
+
+        imported = skipped_dupe = skipped_pending = 0
+        rows_to_import = []
+
+        from collections import Counter
+        csv_rows = []
+        with open(filepath, newline="", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                status = row.get(preset["status_col"], "") if preset["status_col"] else ""
+                if not include_pending and status in preset["skip_status"]:
+                    skipped_pending += 1
+                    continue
+
+                raw_date = row[preset["date_col"]].strip()
+                try:
+                    txn_date = datetime.date.fromisoformat(raw_date)
+                except ValueError:
+                    txn_date = datetime.datetime.strptime(raw_date, "%m/%d/%Y").date()
+
+                merchant = row[preset["merchant_col"]].strip()
+                amount = Decimal(row[preset["amount_col"]].strip().replace(",", ""))
+                if preset["negate_amount"]:
+                    amount = -amount
+                csv_rows.append((txn_date, merchant, amount))
+
+        # Dedup by (date, amount): compare CSV count vs DB count, import the difference
+        csv_counts = Counter((d, a) for d, _, a in csv_rows)
+        db_counts: dict[tuple, int] = {}
+        for (txn_date, amount), csv_n in csv_counts.items():
+            db_n = db.query(Transaction).filter(
+                Transaction.account_id == account_id,
+                Transaction.date == txn_date,
+                Transaction.amount == amount,
+            ).count()
+            db_counts[(txn_date, amount)] = db_n
+
+        seen_counts: Counter = Counter()
+        for txn_date, merchant, amount in csv_rows:
+            key = (txn_date, amount)
+            seen_counts[key] += 1
+            if seen_counts[key] <= db_counts.get(key, 0):
+                skipped_dupe += 1
+                continue
+            rows_to_import.append((txn_date, merchant, amount))
+
+        if not rows_to_import:
+            console.print(f"Nothing new to import. ({skipped_dupe} duplicates, {skipped_pending} pending skipped)")
+            return
+
+        table = Table(title=f"Importing {len(rows_to_import)} transactions")
+        table.add_column("Date")
+        table.add_column("Merchant")
+        table.add_column("Amount", justify="right")
+        for txn_date, merchant, amount in rows_to_import:
+            color = "red" if amount < 0 else "green"
+            table.add_row(str(txn_date), merchant[:50], f"[{color}]{amount:+.2f}[/{color}]")
+        console.print(table)
+
+        if dry_run:
+            console.print(f"[cyan]Dry run: {len(rows_to_import)} would be imported, {skipped_dupe} dupes, {skipped_pending} pending skipped.[/cyan]")
+            return
+
+        for txn_date, merchant, amount in rows_to_import:
+            txn = Transaction(
+                date=txn_date,
+                merchant=merchant,
+                amount=amount,
+                source=TransactionSource.MANUAL,
+                account_id=account_id,
+            )
+            db.add(txn)
+
+        db.commit()
+        console.print(f"[green]Imported {len(rows_to_import)} transactions.[/green] ({skipped_dupe} dupes, {skipped_pending} pending skipped)")
     finally:
         db.close()
 
